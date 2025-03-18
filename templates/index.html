@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JIRA Sprints</title>
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="/static/css/styles.css" rel="stylesheet"> <!-- Cargar el archivo CSS -->
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">JIRA Sprints</span>
+                <div class="row">
+                    <div class="input-field col s4">
+                        <select id="project-select">
+                            <option value="" disabled selected>Choose your project</option>
+                        </select>
+                        <label>Select Project</label>
+                    </div>
+                    <div class="input-field col s4">
+                        <select id="board-select" disabled>
+                            <option value="" disabled selected>Choose your board</option>
+                        </select>
+                        <label>Select Board</label>
+                    </div>
+                    <div class="input-field col s4">
+                        <select id="sprint-select" disabled>
+                            <option value="" disabled selected>Choose your sprint</option>
+                        </select>
+                        <label>Select Sprint</label>
+                    </div>
+                </div>
+                <div class="progress" id="loading-spinner" style="display: none;">
+                    <div class="indeterminate"></div>
+                </div>
+                <div id="sprint-details"></div>
+                <button id="download-sprint-analysis" class="btn waves-effect waves-light green right" style="display: none;">
+                    <i class="material-icons left">assessment</i>
+                    Download Sprint Analysis
+                </button>
+            </div>
+        </div>
+        <div class="section">
+            <div class="card">
+                <div class="card-content">
+                    <h5>Worklogs</h5>
+                    <button id="download-worklogs" class="btn-small waves-effect waves-light green right" style="display: none;">
+                        <i class="material-icons left">file_download</i>
+                        Download Worklogs
+                    </button>
+                    <table class="striped">
+                        <thead>
+                            <tr>
+                                <th>Task Key</th>
+                                <th>Summary</th>
+                                <th>User</th>
+                                <th>Time Spent</th>
+                                <th>Link</th>
+                            </tr>
+                        </thead>
+                        <tbody id="worklog-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="card">
+                <div class="card-content">
+                    <h5>Task Summary</h5>
+                    <table class="striped">
+                        <thead>
+                            <tr>
+                                <th>Task Type</th>
+                                <th>Count</th>
+                                <th>Total Hours</th>
+                            </tr>
+                        </thead>
+                        <tbody id="task-summary-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="card">
+                <div class="card-content">
+                    <h5>Task List</h5>
+                    <table class="striped">
+                        <thead>
+                            <tr>
+                                <th>Task Key</th>
+                                <th>Summary</th>
+                                <th>Status</th>
+                                <th>Story Points</th>
+                            </tr>
+                        </thead>
+                        <tbody id="task-list-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="section chart-container">
+            <canvas id="task-summary-chart"></canvas>
+            <canvas id="task-hours-chart"></canvas>
+        </div>
+        <a id="download-button" class="btn-floating btn-large waves-effect waves-light green darken-3 pulse" href="#" download style="position: fixed; bottom: 20px; right: 20px; display: none;">
+            <i class="material-icons">file_download</i>
+        </a>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

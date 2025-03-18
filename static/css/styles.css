@@ -1,0 +1,75 @@
+.container {
+    margin-top: 50px;
+}
+.progress {
+    margin: 20px 0;
+}
+table {
+    margin-top: 20px;
+    width: 100%; /* Ajustar el ancho de las tablas */
+}
+th, td {
+    padding: 10px; /* Ajustar el padding de las celdas */
+}
+#download-button {
+    margin-top: 20px;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: none; /* Ocultar el botón inicialmente */
+    background-color: green; /* Asegurémonos de que el botón de descarga esté en color verde */
+}
+.chart-container {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 20px;
+}
+.chart-container canvas {
+    max-width: 240px; /* 60% of 400px */
+    max-height: 240px; /* 60% of 400px */
+}
+.avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+.task-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+select {
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    background-color: #fff;
+}
+.new.badge.blue {
+    background-color: #90caf9 !important; /* Color azul pastel */
+}
+.status-label {
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: bold;
+    display: inline-block;
+}
+.grey.lighten-2 {
+    background-color: #e0e0e0;
+    color: #000;
+}
+.light-blue {
+    background-color: #03a9f4;
+    color: #fff;
+}
+.green.lighten-2 {
+    background-color: #a5d6a7;
+    color: #000;
+}
+.green.darken-3 {
+    background-color: #388e3c;
+    color: #fff;
+}
