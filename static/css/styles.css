@@ -1,5 +1,7 @@
 .container {
     margin-top: 50px;
+    width: 90%;
+    max-width: initial;
 }
 .progress {
     margin: 20px 0;
@@ -72,4 +74,34 @@ select {
 .green.darken-3 {
     background-color: #388e3c;
     color: #fff;
+}
+
+nav {
+    margin-bottom: 20px;
+}
+
+.nav-wrapper {
+    padding: 0 20px;
+}
+
+.brand-logo {
+    font-size: 1.8rem !important;
+}
+
+nav ul li.active {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+@media only screen and (min-width: 993px) {
+    .container {
+        width: 90%;
+    }
+}
+
+.metrics-dashboard {
+    margin-top: 20px;
+}
+
+.card {
+    margin-top: 10px;
 }

@@ -47,9 +47,7 @@ def get_issues_in_sprint(sprint_id):
     for issue in issues:
         issue_type = issue['fields']['issuetype']
         issue_type['iconUrl'] = issue_type['iconUrl']
-        story_points = issue['fields'].get('customfield_10016')
-        if issue['key'] == 'TDEV-291':
-            print(issue)
+        story_points = issue['fields'].get('customfield_10016')        
         if story_points is not None:
             issue['fields']['customfield_10016'] = float(story_points)
         else:

@@ -2,6 +2,8 @@ from flask import Flask, render_template, jsonify, send_file
 from jira_api import get_sprints, get_issues_with_details, get_sprint_details, get_sprint_name, get_task_summary, get_projects, get_boards_for_project, get_sprints_for_board, URL
 from openpyxl import Workbook
 from io import BytesIO
+from datetime import datetime
+import pytz
 
 app = Flask(__name__)
 
@@ -235,6 +237,122 @@ def download_sprint_analysis(sprint_id):
         as_attachment=True,
         download_name=f"{sprint_name}_sprint_analysis.xlsx"
     )
+
+@app.route('/metrics')
+def metrics_view():
+    return render_template('metrics.html')
+
+@app.route('/api/sprints/<int:sprint_id>/advanced-metrics')
+def get_advanced_metrics(sprint_id):
+    try:
+        issues = get_issues_with_details(sprint_id)
+        sprint_details = get_sprint_details(sprint_id)
+        
+        # Calcular la velocidad
+        velocity = {
+            'completed_points': sum(float(issue['fields'].get('customfield_10030', 0) or 0)
+                                  for issue in issues 
+                                  if issue['fields']['status']['name'] in ['Done', 'Closed']),
+            'total_points': sum(float(issue['fields'].get('customfield_10030', 0) or 0)
+                              for issue in issues)
+        }
+
+        # Calcular la eficiencia
+        stories = [i for i in issues if i['fields']['issuetype']['name'] == 'Story']
+        completed_stories = [i for i in stories if i['fields']['status']['name'] in ['Done', 'Closed']]
+        
+        efficiency = {
+            'stories_completed': len(completed_stories),
+            'total_stories': len(stories)
+        }
+
+        # Análisis de tiempo
+        time_distribution = calculate_time_distribution(issues)
+
+        # Rendimiento del equipo
+        team_performance = {}
+        for issue in issues:
+            for worklog in issue.get('worklogs', []):
+                author = worklog['author']['displayName']
+                if author not in team_performance:
+                    team_performance[author] = {'total_hours': 0, 'tasks_count': 0}
+                team_performance[author]['total_hours'] += worklog['timeSpentHours']
+                team_performance[author]['tasks_count'] += 1
+
+        # Calcular promedio de horas por tarea para cada miembro
+        for member in team_performance:
+            stats = team_performance[member]
+            stats['avg_hours_per_task'] = stats['total_hours'] / stats['tasks_count'] if stats['tasks_count'] > 0 else 0
+
+        metrics = {
+            'velocity': velocity,
+            'efficiency': efficiency,
+            'time_analysis': {
+                'time_distribution': time_distribution,
+                'average_task_completion': calculate_average_task_completion(issues)
+            },
+            'team_performance': team_performance,
+            'scope_changes': {
+                'added': 0,  # Estos valores se pueden calcular si tienes los campos necesarios en JIRA
+                'removed': 0
+            }
+        }
+        
+        return jsonify(metrics)
+    except Exception as e:
+        print(f"Error calculating metrics: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+def calculate_time_distribution(issues):
+    status_mapping = {
+        'TO DO': 'planning',
+        'TODO': 'planning',
+        'IN PROGRESS': 'development',
+        'CODE REVIEW': 'review',
+        'FOR RELEASE': 'completed',
+        'DONE': 'completed',
+    }
+    
+    distribution = {
+        'planning': 0,
+        'development': 0,
+        'review': 0,
+        'testing': 0,
+        'completed': 0,
+        'other': 0  # Agregamos 'other' como categoría válida
+    }
+    
+    for issue in issues:
+        current_status = issue['fields']['status']['name'].upper()
+        mapped_status = status_mapping.get(current_status, 'other')
+        
+        for worklog in issue.get('worklogs', []):
+            distribution[mapped_status] += worklog['timeSpentHours']
+    
+    # Solo incluir categorías con horas > 0
+    return {k: v for k, v in distribution.items() if v > 0}
+
+def calculate_average_task_completion(issues):
+    completed_issues = [i for i in issues if i['fields']['status']['name'] in ['Done', 'Closed']]
+    if not completed_issues:
+        return 0
+    
+    total_days = 0
+    count = 0
+    
+    for issue in completed_issues:
+        if 'created' in issue['fields'] and 'resolutiondate' in issue['fields']:
+            try:
+                created = datetime.strptime(issue['fields']['created'].split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                resolved = datetime.strptime(issue['fields']['resolutiondate'].split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                days = (resolved - created).days
+                if days >= 0:  # Ignorar valores negativos
+                    total_days += days
+                    count += 1
+            except (ValueError, AttributeError):
+                continue
+    
+    return total_days / count if count > 0 else 0
 
 if __name__ == '__main__':
     app.run(debug=True)

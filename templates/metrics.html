@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sprint Metrics Analysis</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="/static/css/styles.css" rel="stylesheet">
+</head>
+<body>
+    <nav>
+        <div class="nav-wrapper blue darken-1">
+            <div class="container">
+                <a href="/" class="brand-logo">JIRA Sprints</a>
+                <ul id="nav-mobile" class="right">
+                    <li><a href="/">Dashboard</a></li>
+                    <li class="active"><a href="/metrics">Metrics</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">Sprint Selection</span>
+                        <div class="row">
+                            <div class="input-field col s4">
+                                <select id="project-select">
+                                    <option value="" disabled selected>Choose project</option>
+                                </select>
+                                <label>Project</label>
+                            </div>
+                            <div class="input-field col s4">
+                                <select id="board-select" disabled>
+                                    <option value="" disabled selected>Choose board</option>
+                                </select>
+                                <label>Board</label>
+                            </div>
+                            <div class="input-field col s4">
+                                <select id="sprint-select" disabled>
+                                    <option value="" disabled selected>Choose sprint</option>
+                                </select>
+                                <label>Sprint</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row metrics-dashboard" style="display: none;">
+            <div class="col s12 m6">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">Sprint Velocity</span>
+                        <canvas id="velocity-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col s12 m6">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">Time Distribution</span>
+                        <canvas id="time-distribution-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">Team Performance</span>
+                        <div id="team-performance-table"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col s12">
+                <div id="scope-changes"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/js/metrics.js"></script>
+</body>
+</html>
