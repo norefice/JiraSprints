@@ -1,5 +1,6 @@
-flask>=2.0.2
-requests>=2.30.0
-openpyxl>=3.0.9
-pytz>=2021.3
-Werkzeug<3.1
+Flask==2.0.1
+Werkzeug==2.0.3
+openpyxl==3.1.2
+requests>=2.25.1
+jira>=3.5.1
+python-dotenv>=0.19.0
