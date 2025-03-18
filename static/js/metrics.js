@@ -48,16 +48,98 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function loadMetrics() {
         const sprintId = $('#sprint-select').val();
-        if (!sprintId) return;
+        const boardId = $('#board-select').val();
+        if (!sprintId || !boardId) return;
         
         $('.metrics-dashboard').show();
+        // Mostrar todos los indicadores de carga
+        $('.progress-wrapper').show();
         
+        // Cargar datos del sprint actual
         $.get(`/api/sprints/${sprintId}/advanced-metrics`, function(data) {
-            updateVelocityMetrics(data.velocity, data.efficiency);
             updateTimeAnalysis(data.time_analysis);
             updateTeamPerformance(data.team_performance);
             updateScopeChanges(data.scope_changes);
         });
+        
+        // Cargar datos históricos de velocidad usando el board_id actual
+        $.get(`/api/metrics/velocity/${boardId}`, function(data) {
+            updateVelocityTrend(data);
+        });
+    }
+    
+    function updateVelocityTrend(velocityData) {
+        if (charts.velocity) charts.velocity.destroy();
+        
+        const ctx = document.getElementById('velocity-chart').getContext('2d');
+        const averageLine = new Array(velocityData.sprints.length).fill(velocityData.average);
+        
+        // Agregar el valor del promedio al contenedor del gráfico
+        const averageDisplay = document.createElement('div');
+        averageDisplay.style.textAlign = 'center';
+        averageDisplay.style.marginBottom = '20px';
+        averageDisplay.style.fontSize = '1.2em';
+        averageDisplay.innerHTML = `<strong>Team Velocity Average:</strong> <span style="color: #FF9800; font-size: 1.5em">${velocityData.average.toFixed(1)}</span> points per sprint`;
+        ctx.canvas.parentNode.insertBefore(averageDisplay, ctx.canvas);
+
+        charts.velocity = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: velocityData.sprints,
+                datasets: [
+                    {
+                        label: 'Completed Points',
+                        data: velocityData.completed_points,
+                        backgroundColor: '#4CAF50',
+                        order: 2
+                    },
+                    {
+                        label: 'Average',
+                        data: averageLine,
+                        type: 'line',
+                        borderColor: '#FF9800',
+                        borderWidth: 3,
+                        borderDash: [5, 5],
+                        fill: false,
+                        order: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Sprint Velocity Trend (Completed Sprints)',
+                        font: {
+                            size: 16,
+                            weight: 'bold'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                if (context.dataset.type === 'line') {
+                                    return `Team Average: ${context.raw.toFixed(1)} points`;
+                                }
+                                return `Completed: ${context.raw.toFixed(1)} points`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Story Points'
+                        }
+                    }
+                }
+            }
+        });
+        // Ocultar el indicador de carga después de renderizar
+        $('#velocity-chart').closest('.card-content').find('.progress-wrapper').hide();
     }
     
     function updateVelocityMetrics(velocity, efficiency) {
@@ -184,6 +266,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+        // Ocultar el indicador de carga después de renderizar
+        $('#time-distribution-chart').closest('.card-content').find('.progress-wrapper').hide();
     }
     
     function updateTeamPerformance(teamData) {
@@ -213,6 +297,8 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         
         $('#team-performance-table').html(table);
+        // Ocultar el indicador de carga después de renderizar
+        $('#team-performance-table').closest('.card-content').find('.progress-wrapper').hide();
     }
     
     function updateScopeChanges(scopeChanges) {

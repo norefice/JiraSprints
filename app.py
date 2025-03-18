@@ -274,6 +274,42 @@ def get_advanced_metrics(sprint_id):
         print(f"Error calculating metrics: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/metrics/velocity/<int:board_id>')
+def get_velocity_metrics(board_id):
+    """Obtener métricas de velocidad de los últimos 5 sprints completados"""
+    try:
+        sprints = get_sprints_for_board(board_id)
+        # Filtrar solo sprints cerrados/completados
+        completed_sprints = [s for s in sprints if s['state'].upper() in ['CLOSED']]
+        recent_sprints = sorted(completed_sprints, key=lambda x: x['startDate'] if x.get('startDate') else '', reverse=True)[:5]
+        
+        velocity_data = {
+            'sprints': [],
+            'completed_points': [],
+            'average': 0
+        }
+        
+        total_points = 0
+        for sprint in recent_sprints:
+            issues = get_issues_with_details(sprint['id'])
+            completed_points = sum(
+                float(issue['fields'].get('customfield_10030', 0) or 0)
+                for issue in issues
+                if issue['fields']['status']['name'].upper() in ['DONE', 'CLOSED', 'FOR RELEASE']
+            )
+            
+            velocity_data['sprints'].append(sprint['name'])
+            velocity_data['completed_points'].append(completed_points)
+            total_points += completed_points
+        
+        # Calcular el promedio
+        velocity_data['average'] = total_points / len(recent_sprints) if recent_sprints else 0
+        
+        return jsonify(velocity_data)
+    except Exception as e:
+        print(f"Error calculating velocity metrics: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 def calculate_velocity_metrics(issues):
     """
     Calcula métricas de velocidad detalladas del sprint
@@ -285,23 +321,10 @@ def calculate_velocity_metrics(issues):
         'completed_stories': 0,
         'story_details': []       # Para debugging
     }
-    
-    # Debug: Imprimir todos los campos customfield disponibles del primer issue
-    if issues:
-        print("Available fields:", json.dumps(issues[0]['fields'], indent=2))
-    
+
     for issue in issues:
         # Solo considerar historias y tareas técnicas
         if issue['fields']['issuetype']['name'] in ['Story', 'Technical Task']:
-            # Debug: Imprimir información detallada de cada issue
-            print(f"Processing issue {issue['key']}:")
-            print(f"  Type: {issue['fields']['issuetype']['name']}")
-            print(f"  Status: {issue['fields']['status']['name']}")
-            print(f"  Story Points Fields:")
-            for field in issue['fields']:
-                if field.startswith('customfield_'):
-                    print(f"    {field}: {issue['fields'][field]}")
-            
             # Obtener puntos comprometidos y completados
             story_points = issue['fields'].get('customfield_10030') or issue['fields'].get('customfield_10016', 0)
             
@@ -327,8 +350,7 @@ def calculate_velocity_metrics(issues):
                     story_detail['completed'] = False
                 
                 velocity_data['story_details'].append(story_detail)
-    
-    print("Velocity Details:", json.dumps(velocity_data, indent=2))
+
     return velocity_data
 
 def calculate_time_distribution(issues):
