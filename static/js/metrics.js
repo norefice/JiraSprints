@@ -63,21 +63,25 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateVelocityMetrics(velocity, efficiency) {
         if (charts.velocity) charts.velocity.destroy();
         
+        // Debug info
+        console.log('Velocity Data:', velocity);
+        console.log('Story Details:', velocity.story_details);
+        
         const ctx = document.getElementById('velocity-chart').getContext('2d');
         charts.velocity = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: ['Story Points'],
+                labels: ['Sprint Progress'],
                 datasets: [
                     {
-                        label: 'Completed',
+                        label: 'Completed Points',
                         data: [velocity.completed_points],
                         backgroundColor: '#4CAF50'
                     },
                     {
-                        label: 'Total',
-                        data: [velocity.total_points],
-                        backgroundColor: '#2196F3'
+                        label: 'Remaining Points',
+                        data: [velocity.total_points - velocity.completed_points],
+                        backgroundColor: '#FF9800'
                     }
                 ]
             },
@@ -86,7 +90,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 plugins: {
                     title: {
                         display: true,
-                        text: `Sprint Velocity - Completion Rate: ${(efficiency.stories_completed / efficiency.total_stories * 100).toFixed(1)}%`
+                        text: [
+                            `Sprint Velocity Metrics`,
+                            `Completed: ${velocity.completed_points}/${velocity.total_points} points`,
+                            `Stories: ${velocity.completed_stories}/${velocity.total_stories}`,
+                            `Completion Rate: ${((velocity.completed_points / velocity.total_points) * 100).toFixed(1)}%`
+                        ]
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.dataset.label || '';
+                                const value = context.raw || 0;
+                                return `${label}: ${value.toFixed(1)} points`;
+                            }
+                        }
                     }
                 },
                 scales: {
@@ -95,7 +113,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         title: {
                             display: true,
                             text: 'Story Points'
-                        }
+                        },
+                        stacked: true
+                    },
+                    x: {
+                        stacked: true
                     }
                 }
             }

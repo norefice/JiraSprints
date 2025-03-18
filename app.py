@@ -4,6 +4,7 @@ from openpyxl import Workbook
 from io import BytesIO
 from datetime import datetime
 import pytz
+import json  # Agregar esta importación
 
 app = Flask(__name__)
 
@@ -248,50 +249,20 @@ def get_advanced_metrics(sprint_id):
         issues = get_issues_with_details(sprint_id)
         sprint_details = get_sprint_details(sprint_id)
         
-        # Calcular la velocidad
-        velocity = {
-            'completed_points': sum(float(issue['fields'].get('customfield_10030', 0) or 0)
-                                  for issue in issues 
-                                  if issue['fields']['status']['name'] in ['Done', 'Closed']),
-            'total_points': sum(float(issue['fields'].get('customfield_10030', 0) or 0)
-                              for issue in issues)
-        }
-
-        # Calcular la eficiencia
-        stories = [i for i in issues if i['fields']['issuetype']['name'] == 'Story']
-        completed_stories = [i for i in stories if i['fields']['status']['name'] in ['Done', 'Closed']]
+        # Mejorar el cálculo de la velocidad
+        velocity_data = calculate_velocity_metrics(issues)
         
-        efficiency = {
-            'stories_completed': len(completed_stories),
-            'total_stories': len(stories)
-        }
-
-        # Análisis de tiempo
-        time_distribution = calculate_time_distribution(issues)
-
-        # Rendimiento del equipo
-        team_performance = {}
-        for issue in issues:
-            for worklog in issue.get('worklogs', []):
-                author = worklog['author']['displayName']
-                if author not in team_performance:
-                    team_performance[author] = {'total_hours': 0, 'tasks_count': 0}
-                team_performance[author]['total_hours'] += worklog['timeSpentHours']
-                team_performance[author]['tasks_count'] += 1
-
-        # Calcular promedio de horas por tarea para cada miembro
-        for member in team_performance:
-            stats = team_performance[member]
-            stats['avg_hours_per_task'] = stats['total_hours'] / stats['tasks_count'] if stats['tasks_count'] > 0 else 0
-
         metrics = {
-            'velocity': velocity,
-            'efficiency': efficiency,
+            'velocity': velocity_data,
+            'efficiency': {
+                'stories_completed': velocity_data['completed_stories'],
+                'total_stories': velocity_data['total_stories']
+            },
             'time_analysis': {
-                'time_distribution': time_distribution,
+                'time_distribution': calculate_time_distribution(issues),
                 'average_task_completion': calculate_average_task_completion(issues)
             },
-            'team_performance': team_performance,
+            'team_performance': calculate_team_performance(issues),
             'scope_changes': {
                 'added': 0,  # Estos valores se pueden calcular si tienes los campos necesarios en JIRA
                 'removed': 0
@@ -302,6 +273,63 @@ def get_advanced_metrics(sprint_id):
     except Exception as e:
         print(f"Error calculating metrics: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+def calculate_velocity_metrics(issues):
+    """
+    Calcula métricas de velocidad detalladas del sprint
+    """
+    velocity_data = {
+        'committed_points': 0,    # Puntos comprometidos al inicio
+        'completed_points': 0,    # Puntos completados
+        'total_stories': 0,
+        'completed_stories': 0,
+        'story_details': []       # Para debugging
+    }
+    
+    # Debug: Imprimir todos los campos customfield disponibles del primer issue
+    if issues:
+        print("Available fields:", json.dumps(issues[0]['fields'], indent=2))
+    
+    for issue in issues:
+        # Solo considerar historias y tareas técnicas
+        if issue['fields']['issuetype']['name'] in ['Story', 'Technical Task']:
+            # Debug: Imprimir información detallada de cada issue
+            print(f"Processing issue {issue['key']}:")
+            print(f"  Type: {issue['fields']['issuetype']['name']}")
+            print(f"  Status: {issue['fields']['status']['name']}")
+            print(f"  Story Points Fields:")
+            for field in issue['fields']:
+                if field.startswith('customfield_'):
+                    print(f"    {field}: {issue['fields'][field]}")
+            
+            # Obtener puntos comprometidos y completados
+            story_points = issue['fields'].get('customfield_10030') or issue['fields'].get('customfield_10016', 0)
+            
+            if story_points:
+                story_points = float(story_points)
+                velocity_data['committed_points'] += story_points
+                velocity_data['total_stories'] += 1
+                
+                story_detail = {
+                    'key': issue['key'],
+                    'summary': issue['fields']['summary'],
+                    'type': issue['fields']['issuetype']['name'],
+                    'status': issue['fields']['status']['name'],
+                    'committed_points': story_points,
+                    'completed_points': story_points if issue['fields']['status']['name'].upper() in ['DONE', 'CLOSED', 'FOR RELEASE'] else 0
+                }
+                
+                if issue['fields']['status']['name'].upper() in ['DONE', 'CLOSED', 'FOR RELEASE']:
+                    velocity_data['completed_points'] += story_points
+                    velocity_data['completed_stories'] += 1
+                    story_detail['completed'] = True
+                else:
+                    story_detail['completed'] = False
+                
+                velocity_data['story_details'].append(story_detail)
+    
+    print("Velocity Details:", json.dumps(velocity_data, indent=2))
+    return velocity_data
 
 def calculate_time_distribution(issues):
     status_mapping = {
@@ -353,6 +381,23 @@ def calculate_average_task_completion(issues):
                 continue
     
     return total_days / count if count > 0 else 0
+
+def calculate_team_performance(issues):
+    team_performance = {}
+    for issue in issues:
+        for worklog in issue.get('worklogs', []):
+            author = worklog['author']['displayName']
+            if author not in team_performance:
+                team_performance[author] = {'total_hours': 0, 'tasks_count': 0}
+            team_performance[author]['total_hours'] += worklog['timeSpentHours']
+            team_performance[author]['tasks_count'] += 1
+
+    # Calcular promedio de horas por tarea para cada miembro
+    for member in team_performance:
+        stats = team_performance[member]
+        stats['avg_hours_per_task'] = stats['total_hours'] / stats['tasks_count'] if stats['tasks_count'] > 0 else 0
+
+    return team_performance
 
 if __name__ == '__main__':
     app.run(debug=True)
