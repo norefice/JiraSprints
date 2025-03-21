@@ -35,11 +35,18 @@ $(document).ready(function() {
         $('#sprint-select').prop('disabled', false);
         $('select').formSelect();
         $.get(`/api/boards/${boardId}/sprints`, function(data) {
-            // Ordenar los sprints por fecha de inicio (startDate) del más nuevo al más viejo
-            data.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+            const today = new Date();
+            // Filtrar sprints que ya han comenzado
+            const validSprints = data.filter(sprint => {
+                const startDate = new Date(sprint.startDate);
+                return startDate <= today;
+            });
+            
+            // Ordenar por fecha de inicio (más reciente primero)
+            validSprints.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+            
             // Mostrar solo los últimos 4 sprints
-            const recentSprints = data.slice(0, 4);
-            recentSprints.forEach(function(sprint) {
+            validSprints.slice(0, 4).forEach(sprint => {
                 const activeBadge = sprint.state === 'active' ? '<span class="new badge blue" data-badge-caption="Activo"></span>' : '';
                 $('#sprint-select').append(`<option value="${sprint.id}">${sprint.name} ${activeBadge}</option>`);
             });

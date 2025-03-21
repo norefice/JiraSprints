@@ -37,8 +37,18 @@ document.addEventListener('DOMContentLoaded', function() {
         $('.metrics-dashboard').hide();
         
         $.get(`/api/boards/${boardId}/sprints`, function(sprints) {
-            sprints.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
-            sprints.slice(0, 4).forEach(sprint => {
+            const today = new Date();
+            // Filtrar solo sprints actuales y pasados
+            const validSprints = sprints.filter(sprint => {
+                const startDate = new Date(sprint.startDate);
+                return startDate <= today;
+            });
+            
+            // Ordenar por fecha de inicio (más reciente primero)
+            validSprints.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+            
+            // Mostrar solo los últimos 4 sprints
+            validSprints.slice(0, 4).forEach(sprint => {
                 const activeBadge = sprint.state === 'active' ? ' (Active)' : '';
                 $('#sprint-select').append(`<option value="${sprint.id}">${sprint.name}${activeBadge}</option>`);
             });

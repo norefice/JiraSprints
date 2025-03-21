@@ -421,5 +421,129 @@ def calculate_team_performance(issues):
 
     return team_performance
 
+@app.route('/active')
+def active_sprint_view():
+    return render_template('active_sprint.html')
+
+@app.route('/api/sprints/active/<int:board_id>')
+def get_active_sprint(board_id):
+    try:
+        sprints = get_sprints_for_board(board_id)
+        active_sprint = next((s for s in sprints if s['state'].upper() == 'ACTIVE'), None)
+        
+        if not active_sprint:
+            return jsonify({'error': 'No active sprint found'}), 404
+            
+        issues = get_issues_with_details(active_sprint['id'])
+        
+        # Calcular métricas del sprint activo
+        metrics = {
+            'sprint': active_sprint,
+            'total_issues': len(issues),
+            'issues_by_type': {},
+            'issues_by_status': {},
+            'story_points': {
+                'total': 0,
+                'completed': 0
+            },
+            'burndown_data': calculate_burndown_data(active_sprint, issues)
+        }
+        
+        # Contar issues por tipo
+        for issue in issues:
+            issue_type = issue['fields']['issuetype']['name']
+            metrics['issues_by_type'][issue_type] = metrics['issues_by_type'].get(issue_type, 0) + 1
+            
+            # Contar por estado
+            status = issue['fields']['status']['name']
+            metrics['issues_by_status'][status] = metrics['issues_by_status'].get(status, 0) + 1
+            
+            # Sumar story points
+            story_points = float(issue['fields'].get('customfield_10030', 0) or 0)
+            metrics['story_points']['total'] += story_points
+            if status.upper() in ['DONE', 'CLOSED', 'FOR RELEASE']:
+                metrics['story_points']['completed'] += story_points
+        
+        return jsonify(metrics)
+    except Exception as e:
+        print(f"Error getting active sprint: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+def calculate_burndown_data(sprint, issues):
+    """Calcula los datos para el burndown chart considerando issues completados"""
+    from datetime import datetime, timedelta
+    
+    COMPLETED_STATUSES = ['DONE', 'FOR RELEASE']
+    
+    start_date = datetime.strptime(sprint['startDate'].split('T')[0], '%Y-%m-%d')
+    end_date = datetime.strptime(sprint['endDate'].split('T')[0], '%Y-%m-%d')
+    total_days = (end_date - start_date).days + 1
+    today = datetime.now().date()
+    
+    # Calcular total de story points y puntos completados
+    total_points = 0
+    completed_points = 0
+    
+    # Primero calculamos los totales
+    for issue in issues:
+        story_points = float(issue['fields'].get('customfield_10030', 0) or 0)
+        if story_points > 0:
+            total_points += story_points
+            if issue['fields']['status']['name'].upper() in COMPLETED_STATUSES:
+                completed_points += story_points
+
+    # Los puntos restantes son los totales menos los completados
+    remaining_points = total_points - completed_points
+    
+    ideal_burn = []
+    actual_burn = []
+    
+    # Calcular línea ideal
+    points_per_day = total_points / total_days
+    for day in range(total_days):
+        date = start_date + timedelta(days=day)
+        ideal_burn.append({
+            'date': date.strftime('%Y-%m-%d'),
+            'points': round(total_points - (points_per_day * day), 1)
+        })
+    
+    # Calcular línea actual
+    current_date = start_date.date()
+    current_points = total_points
+    
+    while current_date <= min(today, end_date.date()):
+        # Para cada día, revisamos las issues completadas en esa fecha
+        points_completed_today = 0
+        for issue in issues:
+            if (issue['fields']['status']['name'].upper() in COMPLETED_STATUSES and
+                issue['fields'].get('resolutiondate')):
+                resolution_date = datetime.strptime(
+                    issue['fields']['resolutiondate'].split('T')[0], 
+                    '%Y-%m-%d'
+                ).date()
+                if resolution_date == current_date:
+                    story_points = float(issue['fields'].get('customfield_10030', 0) or 0)
+                    points_completed_today += story_points
+        
+        current_points -= points_completed_today
+        
+        actual_burn.append({
+            'date': current_date.strftime('%Y-%m-%d'),
+            'points': round(current_points, 1)
+        })
+        current_date += timedelta(days=1)
+    
+    # Debug info
+    print(f"Total points: {total_points}")
+    print(f"Completed points: {completed_points}")
+    print(f"Remaining points: {remaining_points}")
+    
+    return {
+        'ideal': ideal_burn,
+        'actual': actual_burn,
+        'total_points': total_points,
+        'remaining_points': remaining_points
+    }
+
 if __name__ == '__main__':
     app.run(debug=True)
