@@ -38,7 +38,7 @@ def get_sprints():
     response = requests.get(url, auth=auth)
     sprints = response.json()['values']
     sprints.sort(key=lambda x: x['startDate'], reverse=True)
-    return sprints[:4]
+    return sprints
 
 def get_issues_in_sprint(sprint_id):
     url = f"{URL}/rest/agile/1.0/sprint/{sprint_id}/issue?startAt=0&maxResults=500&expand=fields"

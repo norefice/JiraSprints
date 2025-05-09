@@ -45,8 +45,8 @@ $(document).ready(function() {
             // Ordenar por fecha de inicio (más reciente primero)
             validSprints.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
             
-            // Mostrar solo los últimos 4 sprints
-            validSprints.slice(0, 4).forEach(sprint => {
+            // Mostrar todos los sprints
+            validSprints.forEach(sprint => {
                 const activeBadge = sprint.state === 'active' ? '<span class="new badge blue" data-badge-caption="Activo"></span>' : '';
                 $('#sprint-select').append(`<option value="${sprint.id}">${sprint.name} ${activeBadge}</option>`);
             });
