@@ -248,8 +248,8 @@ def download_sprint_analysis(sprint_id):
             summary,
             assignee,
             status_at_sprint_end,
-            f"{time_spent:.2f}",
-            f"{story_points:.1f}" if story_points > 0 else "",  # Mostrar vacío si es 0
+            time_spent,  # valor numérico
+            story_points if story_points > 0 else None,  # valor numérico o celda vacía
             story_points_analysis,
             parent_summary,
             codigo_presupuesto  # Nuevo campo
