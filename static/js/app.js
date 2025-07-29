@@ -244,6 +244,9 @@ $(document).ready(function() {
             $('#download-sprint-analysis')
                 .attr('onclick', `window.location.href='/api/sprints/${sprintId}/analysis/download'`)
                 .show();
+            $('#download-sprint-analysis-csv')
+                .attr('onclick', `window.location.href='/api/sprints/${sprintId}/analysis/download_csv'`)
+                .show();
         });
     });
 });
