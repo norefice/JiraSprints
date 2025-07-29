@@ -95,6 +95,45 @@
                 <div id="scope-changes"></div>
             </div>
         </div>
+
+        <div class="row metrics-summary-dashboard" style="display: none;">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">Resumen de Métricas de los Últimos 5 Sprints</span>
+                        <div id="metrics-summary-progress" style="display:none;">
+                            <div class="progress"><div class="indeterminate"></div></div>
+                        </div>
+                        <div id="metrics-summary-table"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col s12 m6">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">Fiabilidad del Compromiso (Say/Do Ratio)</span>
+                        <canvas id="saydo-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col s12 m6">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">Distribución del Trabajo</span>
+                        <canvas id="work-distribution-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">Métricas de Bugs</span>
+                        <canvas id="bugs-chart"></canvas>
+                        <div id="bugs-table"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

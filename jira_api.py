@@ -41,7 +41,7 @@ def get_sprints():
     return sprints
 
 def get_issues_in_sprint(sprint_id):
-    url = f"{URL}/rest/agile/1.0/sprint/{sprint_id}/issue?startAt=0&maxResults=500&expand=fields"
+    url = f"{URL}/rest/agile/1.0/sprint/{sprint_id}/issue?startAt=0&maxResults=500&expand=fields,changelog"
     response = requests.get(url, auth=auth)
     issues = response.json()['issues']
     for issue in issues:

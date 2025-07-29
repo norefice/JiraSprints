@@ -154,6 +154,7 @@ def analyze_story_points_vs_time(story_points, time_spent):
 @app.route('/api/sprints/<int:sprint_id>/analysis/download')
 def download_sprint_analysis(sprint_id):
     issues = get_issues_with_details(sprint_id)
+    sprint_details = get_sprint_details(sprint_id)
     sprint_name = get_sprint_name(sprint_id)
     wb = Workbook()
     ws = wb.active
@@ -173,6 +174,13 @@ def download_sprint_analysis(sprint_id):
     ]
     ws.append(headers)
     
+    # Obtener fecha de fin del sprint como datetime
+    sprint_end = sprint_details.get('endDate')
+    if sprint_end:
+        sprint_end_dt = datetime.strptime(sprint_end, '%Y-%m-%d %H:%M:%S')
+    else:
+        sprint_end_dt = None
+    
     for issue in issues:
         issue_type = issue['fields']['issuetype']['name']
         issue_key = issue['key']
@@ -182,7 +190,33 @@ def download_sprint_analysis(sprint_id):
         if issue['fields'].get('assignee'):
             assignee = issue['fields']['assignee'].get('displayName', '')
         
+        # --- Estado al final del sprint usando changelog ---
         status = issue['fields']['status']['name']
+        status_at_sprint_end = status
+        changelog = issue.get('changelog', {}).get('histories', [])
+        last_status = None
+        last_status_date = None
+        if sprint_end_dt:
+            for history in changelog:
+                for item in history.get('items', []):
+                    if item.get('field') == 'status':
+                        # Fecha del cambio
+                        change_date = history.get('created')
+                        if change_date:
+                            try:
+                                change_dt = datetime.strptime(change_date.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                                if change_dt <= sprint_end_dt:
+                                    if (last_status_date is None) or (change_dt > last_status_date):
+                                        last_status = item.get('toString')
+                                        last_status_date = change_dt
+                            except Exception:
+                                pass
+            if last_status:
+                status_at_sprint_end = last_status
+            else:
+                # Si no hay cambios antes del endDate, usar el estado inicial
+                status_at_sprint_end = status
+        
         time_spent = sum(worklog['timeSpentHours'] for worklog in issue['worklogs'])
         
         # Manejo explícito de Story Points usando el campo correcto
@@ -207,7 +241,7 @@ def download_sprint_analysis(sprint_id):
             issue_key,
             summary,
             assignee,
-            status,
+            status_at_sprint_end,
             f"{time_spent:.2f}",
             f"{story_points:.1f}" if story_points > 0 else "",  # Mostrar vacío si es 0
             story_points_analysis,
@@ -324,7 +358,7 @@ def calculate_velocity_metrics(issues):
 
     for issue in issues:
         # Solo considerar historias y tareas técnicas
-        if issue['fields']['issuetype']['name'] in ['Story', 'Technical Task']:
+        if issue['fields']['issuetype']['name'] in ['Story', 'Task']:
             # Obtener puntos comprometidos y completados
             story_points = issue['fields'].get('customfield_10030') or issue['fields'].get('customfield_10016', 0)
             
@@ -358,7 +392,7 @@ def calculate_time_distribution(issues):
         'TO DO': 'planning',
         'TODO': 'planning',
         'IN PROGRESS': 'development',
-        'CODE REVIEW': 'review',
+        'CODE REVIEW': 'completed',
         'FOR RELEASE': 'completed',
         'DONE': 'completed',
     }
@@ -544,6 +578,111 @@ def calculate_burndown_data(sprint, issues):
         'total_points': total_points,
         'remaining_points': remaining_points
     }
+
+@app.route('/api/metrics/summary/<int:board_id>')
+def get_sprint_metrics_summary(board_id):
+    """
+    Devuelve un resumen de métricas para los últimos 5 sprints cerrados de un tablero:
+    - Nombre y fechas del sprint
+    - Story points comprometidos y completados
+    - Ratio de fiabilidad (Say/Do)
+    - Distribución de issues por tipo
+    - Métricas de bugs (creados, resueltos, severidad, tiempo de resolución)
+    """
+    try:
+        sprints = get_sprints_for_board(board_id)
+        # Filtrar solo sprints cerrados/completados
+        completed_sprints = [s for s in sprints if s['state'].upper() in ['CLOSED']]
+        recent_sprints = sorted(completed_sprints, key=lambda x: x['startDate'] if x.get('startDate') else '', reverse=True)[:5]
+        summary = []
+        for sprint in recent_sprints:
+            sprint_id = sprint['id']
+            sprint_name = sprint['name']
+            start_date = sprint.get('startDate')
+            end_date = sprint.get('endDate')
+            issues = get_issues_with_details(sprint_id)
+            # Story points comprometidos y completados
+            committed_points = 0
+            completed_points = 0
+            committed_issues = 0
+            completed_issues = 0
+            issue_type_dist = {}
+            bugs_created = 0
+            bugs_resolved = 0
+            bug_severity = {}
+            bug_resolution_times = []
+            for issue in issues:
+                print(f"Issue: {issue}")
+                issue_type = issue['fields']['issuetype']['name']
+                print(f"Issue Type: {issue['fields']['issuetype']}")
+                issue_status = issue['fields']['status']['name']
+                # Distribución de tipos
+                if issue_type not in issue_type_dist:
+                    issue_type_dist[issue_type] = 0
+                issue_type_dist[issue_type] += 1
+                # Story points
+                story_points = issue['fields'].get('customfield_10030') or issue['fields'].get('customfield_10016', 0)
+                if story_points:
+                    try:
+                        story_points = float(story_points)
+                    except:
+                        story_points = 0
+                else:
+                    story_points = 0
+                # Comprometidos: todos los issues con story points
+                if issue_type in ['Story', 'Task']:
+                    committed_points += story_points
+                    committed_issues += 1
+                    # Completados: solo los que están en estado final
+                    if issue_status.upper() in ['DONE', 'CLOSED', 'FOR RELEASE']:
+                        completed_points += story_points
+                        completed_issues += 1
+                # Bugs
+                if issue_type == 'Bug':
+                    bugs_created += 1
+                    # Severidad
+                    severity = issue['fields'].get('priority', {}).get('name', 'Sin severidad')
+                    if severity not in bug_severity:
+                        bug_severity[severity] = 0
+                    bug_severity[severity] += 1
+                    # Resueltos
+                    if issue_status.upper() in ['DONE', 'CLOSED', 'FOR RELEASE']:
+                        bugs_resolved += 1
+                        # Tiempo de resolución
+                        created = issue['fields'].get('created')
+                        resolved = issue['fields'].get('resolutiondate')
+                        if created and resolved:
+                            try:
+                                created_dt = datetime.strptime(created.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                                resolved_dt = datetime.strptime(resolved.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                                days = (resolved_dt - created_dt).days
+                                if days >= 0:
+                                    bug_resolution_times.append(days)
+                            except Exception:
+                                pass
+            # Ratio de fiabilidad
+            say_do_ratio = (completed_points / committed_points * 100) if committed_points > 0 else 0
+            avg_bug_resolution = sum(bug_resolution_times) / len(bug_resolution_times) if bug_resolution_times else 0
+            summary.append({
+                'sprint_id': sprint_id,
+                'sprint_name': sprint_name,
+                'start_date': start_date,
+                'end_date': end_date,
+                'committed_points': committed_points,
+                'completed_points': completed_points,
+                'say_do_ratio': say_do_ratio,
+                'issue_type_distribution': issue_type_dist,
+                'bugs': {
+                    'created': bugs_created,
+                    'resolved': bugs_resolved,
+                    'severity': bug_severity,
+                    'avg_resolution_days': avg_bug_resolution
+                }
+            })
+        return jsonify(summary)
+    except Exception as e:
+        print(f"Error in metrics summary: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

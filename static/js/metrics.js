@@ -14,7 +14,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Event listeners para los selects
     $('#project-select').change(loadBoards);
-    $('#board-select').change(loadSprints);
+    $('#board-select').change(function() {
+        loadSprints();
+        loadSummaryMetrics();
+    });
     $('#sprint-select').change(loadMetrics);
     
     function loadBoards() {
@@ -76,6 +79,157 @@ document.addEventListener('DOMContentLoaded', function() {
         $.get(`/api/metrics/velocity/${boardId}`, function(data) {
             updateVelocityTrend(data);
         });
+    }
+
+    function loadSummaryMetrics() {
+        const boardId = $('#board-select').val();
+        if (!boardId) return;
+        $('.metrics-summary-dashboard').hide();
+        $('#metrics-summary-progress').show();
+        $.get(`/api/metrics/summary/${boardId}`, function(summary) {
+            if (!summary || summary.length === 0) {
+                $('#metrics-summary-progress').hide();
+                return;
+            }
+            renderSummaryTable(summary);
+            renderSayDoChart(summary);
+            renderWorkDistributionChart(summary);
+            renderBugsChart(summary);
+            $('#metrics-summary-progress').hide();
+            $('.metrics-summary-dashboard').show();
+        }).fail(function() {
+            $('#metrics-summary-progress').hide();
+        });
+    }
+
+    function renderSummaryTable(summary) {
+        let html = `<table class="striped responsive-table"><thead><tr>
+            <th>Sprint</th><th>Fechas</th><th>Comprometidos</th><th>Completados</th><th>Say/Do Ratio (%)</th><th>Bugs Creados</th><th>Bugs Resueltos</th><th>Prom. Resolución Bugs (días)</th>
+        </tr></thead><tbody>`;
+        summary.forEach(s => {
+            html += `<tr>
+                <td>${s.sprint_name}</td>
+                <td>${s.start_date ? s.start_date.split('T')[0] : ''} - ${s.end_date ? s.end_date.split('T')[0] : ''}</td>
+                <td>${s.committed_points}</td>
+                <td>${s.completed_points}</td>
+                <td>${s.say_do_ratio.toFixed(1)}</td>
+                <td>${s.bugs.created}</td>
+                <td>${s.bugs.resolved}</td>
+                <td>${s.bugs.avg_resolution_days.toFixed(1)}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        $('#metrics-summary-table').html(html);
+    }
+
+    function renderSayDoChart(summary) {
+        if (charts.saydo) charts.saydo.destroy();
+        const ctx = document.getElementById('saydo-chart').getContext('2d');
+        charts.saydo = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: summary.map(s => s.sprint_name),
+                datasets: [{
+                    label: 'Say/Do Ratio (%)',
+                    data: summary.map(s => s.say_do_ratio),
+                    backgroundColor: '#42a5f5'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: { display: true, text: 'Fiabilidad del Compromiso (Say/Do Ratio)' },
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, max: 120, title: { display: true, text: '%' } }
+                }
+            }
+        });
+    }
+
+    function renderWorkDistributionChart(summary) {
+        if (charts.workdist) charts.workdist.destroy();
+        const ctx = document.getElementById('work-distribution-chart').getContext('2d');
+        // Sumar por tipo en los 5 sprints
+        const typeTotals = {};
+        summary.forEach(s => {
+            Object.entries(s.issue_type_distribution).forEach(([type, count]) => {
+                if (!typeTotals[type]) typeTotals[type] = 0;
+                typeTotals[type] += count;
+            });
+        });
+        charts.workdist = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: Object.keys(typeTotals),
+                datasets: [{
+                    data: Object.values(typeTotals),
+                    backgroundColor: [
+                        '#4CAF50', '#FF9800', '#2196F3', '#E91E63', '#9C27B0', '#FFC107', '#607D8B', '#795548'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: { display: true, text: 'Distribución de Tipos de Trabajo (5 sprints)' },
+                    legend: { position: 'right' }
+                }
+            }
+        });
+    }
+
+    function renderBugsChart(summary) {
+        if (charts.bugs) charts.bugs.destroy();
+        const ctx = document.getElementById('bugs-chart').getContext('2d');
+        // Bugs creados y resueltos por sprint
+        charts.bugs = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: summary.map(s => s.sprint_name),
+                datasets: [
+                    {
+                        label: 'Bugs Creados',
+                        data: summary.map(s => s.bugs.created),
+                        borderColor: '#e53935',
+                        backgroundColor: 'rgba(229,57,53,0.2)',
+                        fill: true
+                    },
+                    {
+                        label: 'Bugs Resueltos',
+                        data: summary.map(s => s.bugs.resolved),
+                        borderColor: '#43a047',
+                        backgroundColor: 'rgba(67,160,71,0.2)',
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: { display: true, text: 'Bugs Creados y Resueltos por Sprint' }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+        // Tabla de severidad
+        let html = '<h6>Severidad de Bugs (acumulado 5 sprints)</h6><table class="striped"><thead><tr><th>Severidad</th><th>Cantidad</th></tr></thead><tbody>';
+        // Sumar severidad
+        const severityTotals = {};
+        summary.forEach(s => {
+            Object.entries(s.bugs.severity).forEach(([sev, count]) => {
+                if (!severityTotals[sev]) severityTotals[sev] = 0;
+                severityTotals[sev] += count;
+            });
+        });
+        Object.entries(severityTotals).forEach(([sev, count]) => {
+            html += `<tr><td>${sev}</td><td>${count}</td></tr>`;
+        });
+        html += '</tbody></table>';
+        $('#bugs-table').html(html);
     }
     
     function updateVelocityTrend(velocityData) {
