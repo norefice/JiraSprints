@@ -177,7 +177,9 @@ def download_sprint_analysis(sprint_id):
     # Obtener fecha de fin del sprint como datetime
     sprint_end = sprint_details.get('endDate')
     if sprint_end:
-        sprint_end_dt = datetime.strptime(sprint_end, '%Y-%m-%d %H:%M:%S')
+        # Ajustar la hora de cierre del sprint a las 23:59
+        sprint_end_date = datetime.strptime(sprint_end, '%Y-%m-%d %H:%M:%S').date()
+        sprint_end_dt = datetime.combine(sprint_end_date, datetime.max.time().replace(hour=23, minute=59, second=59, microsecond=0))
     else:
         sprint_end_dt = None
     
