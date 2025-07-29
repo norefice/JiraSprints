@@ -172,7 +172,7 @@ def download_sprint_analysis(sprint_id):
         "Story Points",
         "Story Points vs Time",
         "Parent Summary",
-        "Código Presupuesto"  # Nueva columna
+        "Fecha de Creación"
     ]
     ws.append(headers)
     
@@ -241,8 +241,15 @@ def download_sprint_analysis(sprint_id):
             parent_fields = issue['fields']['parent'].get('fields', {})
             parent_summary = parent_fields.get('summary', '')
         
-        # Obtener el código de presupuesto
-        codigo_presupuesto = issue['fields'].get('customfield_10162', '')
+        # Obtener la fecha de creación
+        fecha_creacion = issue['fields'].get('created', '')
+        if fecha_creacion:
+            try:
+                # Convertir a formato legible
+                fecha_dt = datetime.strptime(fecha_creacion.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                fecha_creacion = fecha_dt.strftime('%Y-%m-%d %H:%M:%S')
+            except:
+                fecha_creacion = fecha_creacion
         
         row = [
             issue_type,
@@ -254,7 +261,7 @@ def download_sprint_analysis(sprint_id):
             story_points if story_points > 0 else None,  # valor numérico o celda vacía
             story_points_analysis,
             parent_summary,
-            codigo_presupuesto  # Nuevo campo
+            fecha_creacion
         ]
         ws.append(row)
 
@@ -297,7 +304,7 @@ def download_sprint_analysis_csv(sprint_id):
         "Story Points",
         "Story Points vs Time",
         "Parent Summary",
-        "Código Presupuesto"
+        "Fecha de Creación"
     ]
     
     # Obtener fecha de fin del sprint como datetime
@@ -357,7 +364,15 @@ def download_sprint_analysis_csv(sprint_id):
             if issue['fields'].get('parent'):
                 parent_fields = issue['fields']['parent'].get('fields', {})
                 parent_summary = parent_fields.get('summary', '')
-            codigo_presupuesto = issue['fields'].get('customfield_10162', '')
+            # Obtener la fecha de creación
+            fecha_creacion = issue['fields'].get('created', '')
+            if fecha_creacion:
+                try:
+                    # Convertir a formato legible
+                    fecha_dt = datetime.strptime(fecha_creacion.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                    fecha_creacion = fecha_dt.strftime('%Y-%m-%d %H:%M:%S')
+                except:
+                    fecha_creacion = fecha_creacion
             row = [
                 issue_type,
                 issue_key,
@@ -368,7 +383,7 @@ def download_sprint_analysis_csv(sprint_id):
                 story_points if story_points > 0 else None,
                 story_points_analysis,
                 parent_summary,
-                codigo_presupuesto
+                fecha_creacion
             ]
             output.append(row)
         # Escribir CSV en memoria
