@@ -18,7 +18,17 @@ document.addEventListener('DOMContentLoaded', function() {
         loadSprints();
         loadSummaryMetrics();
     });
-    $('#sprint-select').change(loadMetrics);
+    $('#sprint-select').change(function() {
+        const sprintId = $('#sprint-select').val();
+        if (sprintId) {
+            $('#download-analysis-xlsx').removeClass('disabled').attr('href', `/api/sprints/${sprintId}/analysis/download`);
+            $('#download-analysis-csv').removeClass('disabled').attr('href', `/api/sprints/${sprintId}/analysis/download_csv`);
+        } else {
+            $('#download-analysis-xlsx').addClass('disabled').attr('href', '#');
+            $('#download-analysis-csv').addClass('disabled').attr('href', '#');
+        }
+        loadMetrics();
+    });
     
     function loadBoards() {
         const projectId = $('#project-select').val();

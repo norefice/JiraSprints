@@ -1,10 +1,12 @@
-from flask import Flask, render_template, jsonify, send_file
+from flask import Flask, render_template, jsonify, send_file, Response
 from jira_api import get_sprints, get_issues_with_details, get_sprint_details, get_sprint_name, get_task_summary, get_projects, get_boards_for_project, get_sprints_for_board, URL
 from openpyxl import Workbook
 from io import BytesIO
 from datetime import datetime
 import pytz
 import json  # Agregar esta importación
+import csv
+import io
 
 app = Flask(__name__)
 
@@ -277,6 +279,111 @@ def download_sprint_analysis(sprint_id):
         file_stream,
         as_attachment=True,
         download_name=f"{sprint_name}_sprint_analysis.xlsx"
+    )
+
+@app.route('/api/sprints/<int:sprint_id>/analysis/download_csv')
+def download_sprint_analysis_csv(sprint_id):
+    issues = get_issues_with_details(sprint_id)
+    sprint_details = get_sprint_details(sprint_id)
+    sprint_name = get_sprint_name(sprint_id)
+    
+    headers = [
+        "Issue Type",
+        "Issue Key",
+        "Summary",
+        "Assignee",
+        "Status",
+        "Time Spent",
+        "Story Points",
+        "Story Points vs Time",
+        "Parent Summary",
+        "Código Presupuesto"
+    ]
+    
+    # Obtener fecha de fin del sprint como datetime
+    sprint_end = sprint_details.get('endDate')
+    if sprint_end:
+        sprint_end_date = datetime.strptime(sprint_end, '%Y-%m-%d %H:%M:%S').date()
+        sprint_end_dt = datetime.combine(sprint_end_date, datetime.max.time().replace(hour=23, minute=59, second=59, microsecond=0))
+    else:
+        sprint_end_dt = None
+    
+    def generate():
+        output = []
+        output.append(headers)
+        for issue in issues:
+            issue_type = issue['fields']['issuetype']['name']
+            issue_key = issue['key']
+            summary = issue['fields'].get('summary', '')
+            assignee = ''
+            if issue['fields'].get('assignee'):
+                assignee = issue['fields']['assignee'].get('displayName', '')
+            # Estado al final del sprint usando changelog
+            status = issue['fields']['status']['name']
+            status_at_sprint_end = status
+            changelog = issue.get('changelog', {}).get('histories', [])
+            last_status = None
+            last_status_date = None
+            if sprint_end_dt:
+                for history in changelog:
+                    for item in history.get('items', []):
+                        if item.get('field') == 'status':
+                            change_date = history.get('created')
+                            if change_date:
+                                try:
+                                    change_dt = datetime.strptime(change_date.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                                    if change_dt <= sprint_end_dt:
+                                        if (last_status_date is None) or (change_dt > last_status_date):
+                                            last_status = item.get('toString')
+                                            last_status_date = change_dt
+                                except Exception:
+                                    pass
+                if last_status:
+                    status_at_sprint_end = last_status
+                else:
+                    status_at_sprint_end = status
+            time_spent = sum(worklog['timeSpentHours'] for worklog in issue['worklogs'])
+            story_points = issue['fields'].get('customfield_10030', 0)
+            if story_points is not None:
+                story_points = float(story_points)
+            else:
+                story_points = 0.0
+            # Solo analizar story points vs tiempo si la issue está finalizada (Code Review, For Release, Done)
+            if status_at_sprint_end in ['CODE REVIEW', 'For Release', 'Done']:
+                story_points_analysis = analyze_story_points_vs_time(story_points, time_spent)
+            else:
+                story_points_analysis = ""
+            parent_summary = ""
+            if issue['fields'].get('parent'):
+                parent_fields = issue['fields']['parent'].get('fields', {})
+                parent_summary = parent_fields.get('summary', '')
+            codigo_presupuesto = issue['fields'].get('customfield_10162', '')
+            row = [
+                issue_type,
+                issue_key,
+                summary,
+                assignee,
+                status_at_sprint_end,
+                time_spent,
+                story_points if story_points > 0 else None,
+                story_points_analysis,
+                parent_summary,
+                codigo_presupuesto
+            ]
+            output.append(row)
+        # Escribir CSV en memoria
+        si = io.StringIO()
+        writer = csv.writer(si)
+        for row in output:
+            writer.writerow(row)
+        return si.getvalue()
+    csv_data = generate()
+    return Response(
+        csv_data,
+        mimetype='text/csv',
+        headers={
+            'Content-Disposition': f'attachment;filename={sprint_name}_sprint_analysis.csv'
+        }
     )
 
 @app.route('/metrics')
