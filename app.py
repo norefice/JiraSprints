@@ -227,7 +227,7 @@ def download_sprint_analysis(sprint_id):
             story_points = 0.0
             
         # Solo analizar story points vs tiempo si la issue está finalizada (Code Review, For Release, Done)
-        if status_at_sprint_end in ['CODE REVIEW', 'FOR RELEASE', 'DONE']:
+        if status_at_sprint_end in ['CODE REVIEW', 'For Release', 'Done']:
             story_points_analysis = analyze_story_points_vs_time(story_points, time_spent)
         else:
             story_points_analysis = ""
