@@ -198,27 +198,43 @@ def download_sprint_analysis(sprint_id):
         status = issue['fields']['status']['name']
         status_at_sprint_end = status
         changelog = issue.get('changelog', {}).get('histories', [])
-        last_status = None
-        last_status_date = None
+        
         if sprint_end_dt:
-            for history in changelog:
-                for item in history.get('items', []):
-                    if item.get('field') == 'status':
-                        # Fecha del cambio
-                        change_date = history.get('created')
-                        if change_date:
-                            try:
-                                change_dt = datetime.strptime(change_date.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+            # Ordenar el changelog por fecha para procesar cronológicamente
+            sorted_changelog = sorted(changelog, key=lambda x: x.get('created', ''))
+            
+            # Buscar el estado inicial y el último estado antes del cierre del sprint
+            initial_status = None
+            last_status_before_sprint_end = None
+            
+            for history in sorted_changelog:
+                change_date = history.get('created')
+                if change_date:
+                    try:
+                        change_dt = datetime.strptime(change_date.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                        
+                        for item in history.get('items', []):
+                            if item.get('field') == 'status':
+                                # Guardar el estado inicial (fromString del primer cambio)
+                                if initial_status is None:
+                                    initial_status = item.get('fromString')
+                                
+                                # Si este cambio ocurrió antes o durante el sprint, actualizar el último estado
                                 if change_dt <= sprint_end_dt:
-                                    if (last_status_date is None) or (change_dt > last_status_date):
-                                        last_status = item.get('toString')
-                                        last_status_date = change_dt
-                            except Exception:
-                                pass
-            if last_status:
-                status_at_sprint_end = last_status
+                                    last_status_before_sprint_end = item.get('toString')
+                        
+                    except Exception:
+                        pass
+            
+            # Determinar el estado al cierre del sprint
+            if last_status_before_sprint_end:
+                # Si hubo cambios antes del cierre, usar el último estado
+                status_at_sprint_end = last_status_before_sprint_end
+            elif initial_status:
+                # Si no hubo cambios antes del cierre, usar el estado inicial
+                status_at_sprint_end = initial_status
             else:
-                # Si no hay cambios antes del endDate, usar el estado inicial
+                # Si no hay changelog, usar el estado actual como fallback
                 status_at_sprint_end = status
         
         time_spent = sum(worklog['timeSpentHours'] for worklog in issue['worklogs'])
@@ -329,25 +345,43 @@ def download_sprint_analysis_csv(sprint_id):
             status = issue['fields']['status']['name']
             status_at_sprint_end = status
             changelog = issue.get('changelog', {}).get('histories', [])
-            last_status = None
-            last_status_date = None
+            
             if sprint_end_dt:
-                for history in changelog:
-                    for item in history.get('items', []):
-                        if item.get('field') == 'status':
-                            change_date = history.get('created')
-                            if change_date:
-                                try:
-                                    change_dt = datetime.strptime(change_date.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                # Ordenar el changelog por fecha para procesar cronológicamente
+                sorted_changelog = sorted(changelog, key=lambda x: x.get('created', ''))
+                
+                # Buscar el estado inicial y el último estado antes del cierre del sprint
+                initial_status = None
+                last_status_before_sprint_end = None
+                
+                for history in sorted_changelog:
+                    change_date = history.get('created')
+                    if change_date:
+                        try:
+                            change_dt = datetime.strptime(change_date.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                            
+                            for item in history.get('items', []):
+                                if item.get('field') == 'status':
+                                    # Guardar el estado inicial (fromString del primer cambio)
+                                    if initial_status is None:
+                                        initial_status = item.get('fromString')
+                                    
+                                    # Si este cambio ocurrió antes o durante el sprint, actualizar el último estado
                                     if change_dt <= sprint_end_dt:
-                                        if (last_status_date is None) or (change_dt > last_status_date):
-                                            last_status = item.get('toString')
-                                            last_status_date = change_dt
-                                except Exception:
-                                    pass
-                if last_status:
-                    status_at_sprint_end = last_status
+                                        last_status_before_sprint_end = item.get('toString')
+                            
+                        except Exception:
+                            pass
+                
+                # Determinar el estado al cierre del sprint
+                if last_status_before_sprint_end:
+                    # Si hubo cambios antes del cierre, usar el último estado
+                    status_at_sprint_end = last_status_before_sprint_end
+                elif initial_status:
+                    # Si no hubo cambios antes del cierre, usar el estado inicial
+                    status_at_sprint_end = initial_status
                 else:
+                    # Si no hay changelog, usar el estado actual como fallback
                     status_at_sprint_end = status
             time_spent = sum(worklog['timeSpentHours'] for worklog in issue['worklogs'])
             story_points = issue['fields'].get('customfield_10030', 0)
