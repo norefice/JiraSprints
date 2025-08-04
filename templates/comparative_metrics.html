@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Métricas Comparativas - Jira Sprints</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="blue darken-3">
+        <div class="nav-wrapper container">
+            <a href="/" class="brand-logo">Jira Sprints</a>
+            <ul id="nav-mobile" class="right hide-on-med-and-down">
+                <li><a href="/">Dashboard</a></li>
+                <li><a href="/active">Sprint Activo</a></li>
+                <li><a href="/metrics">Métricas</a></li>
+                <li><a href="/comparative-metrics" class="active">Métricas Comparativas</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row">
+            <div class="col s12">
+                <h4>Métricas Comparativas</h4>
+                <p class="flow-text">Análisis detallado y comparativo de múltiples sprints</p>
+            </div>
+        </div>
+
+        <!-- Selector de Proyecto y Tablero -->
+        <div class="row">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">Selección de Proyecto y Tablero</span>
+                        <div class="row">
+                            <div class="input-field col s12 m6">
+                                <select id="project-select">
+                                    <option value="" disabled selected>Selecciona un proyecto</option>
+                                </select>
+                                <label>Proyecto</label>
+                            </div>
+                            <div class="input-field col s12 m6">
+                                <select id="board-select" disabled>
+                                    <option value="" disabled selected>Selecciona un tablero</option>
+                                </select>
+                                <label>Tablero</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Selector de Sprints -->
+        <div class="row" id="sprints-selection" style="display: none;">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">Selección de Sprints</span>
+                        <p>Selecciona los sprints que deseas comparar (máximo 10):</p>
+                        <div id="sprints-container" class="row">
+                            <!-- Los sprints se cargarán dinámicamente aquí -->
+                        </div>
+                        <div class="row">
+                            <div class="col s12 right-align">
+                                <button id="analyze-sprints" class="btn waves-effect waves-light blue" disabled>
+                                    <i class="material-icons left">analytics</i>
+                                    Analizar Sprints Seleccionados
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="row" id="analysis-progress" style="display: none;">
+            <div class="col s12">
+                <div class="progress">
+                    <div class="indeterminate"></div>
+                </div>
+                <p class="center-align">Analizando sprints seleccionados...</p>
+            </div>
+        </div>
+
+        <!-- Resumen Ejecutivo -->
+        <div class="row" id="executive-summary" style="display: none;">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">📋 Resumen Ejecutivo</span>
+                        <div id="insights-container">
+                            <!-- Insights se cargarán dinámicamente -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Métricas de Equipo -->
+        <div class="row" id="team-metrics" style="display: none;">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">📊 Métricas de Equipo</span>
+                        
+                        <!-- Velocity y Productividad -->
+                        <div class="row">
+                            <div class="col s12 m6">
+                                <div class="card-panel">
+                                    <h6>Velocity y Productividad</h6>
+                                    <canvas id="velocity-chart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col s12 m6">
+                                <div class="card-panel">
+                                    <h6>Eficiencia (Story Points/Hora)</h6>
+                                    <canvas id="efficiency-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Distribución del Trabajo -->
+                        <div class="row">
+                            <div class="col s12 m6">
+                                <div class="card-panel">
+                                    <h6>Distribución por Tipo de Issue</h6>
+                                    <canvas id="issue-distribution-chart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col s12 m6">
+                                <div class="card-panel">
+                                    <h6>Ratio Bugs vs Features</h6>
+                                    <canvas id="bugs-ratio-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Calidad de Estimaciones -->
+                        <div class="row">
+                            <div class="col s12">
+                                <div class="card-panel">
+                                    <h6>Calidad de Estimaciones</h6>
+                                    <canvas id="estimation-quality-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tabla de Métricas Comparativas -->
+                        <div class="row">
+                            <div class="col s12">
+                                <div class="card-panel">
+                                    <h6>Métricas Comparativas por Sprint</h6>
+                                    <div id="team-metrics-table"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Métricas Individuales -->
+        <div class="row" id="individual-metrics" style="display: none;">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">👤 Métricas Individuales</span>
+                        
+                        <!-- Productividad Individual -->
+                        <div class="row">
+                            <div class="col s12 m6">
+                                <div class="card-panel">
+                                    <h6>Story Points por Desarrollador</h6>
+                                    <canvas id="individual-velocity-chart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col s12 m6">
+                                <div class="card-panel">
+                                    <h6>Horas Trabajadas por Persona</h6>
+                                    <canvas id="individual-hours-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Especialización -->
+                        <div class="row">
+                            <div class="col s12">
+                                <div class="card-panel">
+                                    <h6>Distribución de Trabajo por Persona</h6>
+                                    <canvas id="specialization-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tabla de Métricas Individuales -->
+                        <div class="row">
+                            <div class="col s12">
+                                <div class="card-panel">
+                                    <h6>Ranking de Productividad Individual</h6>
+                                    <div id="individual-metrics-table"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Análisis de Tendencias -->
+        <div class="row" id="trends-analysis" style="display: none;">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">📈 Análisis de Tendencias</span>
+                        
+                        <!-- Tendencias Temporales -->
+                        <div class="row">
+                            <div class="col s12 m6">
+                                <div class="card-panel">
+                                    <h6>Evolución de Velocity</h6>
+                                    <canvas id="velocity-trend-chart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col s12 m6">
+                                <div class="card-panel">
+                                    <h6>Precisión de Estimaciones en el Tiempo</h6>
+                                    <canvas id="estimation-trend-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Patrones de Trabajo -->
+                        <div class="row">
+                            <div class="col s12">
+                                <div class="card-panel">
+                                    <h6>Consistencia en Estimaciones</h6>
+                                    <canvas id="consistency-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recomendaciones -->
+        <div class="row" id="recommendations" style="display: none;">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">💡 Recomendaciones Automáticas</span>
+                        <div id="recommendations-container">
+                            <!-- Recomendaciones se cargarán dinámicamente -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botones de Descarga -->
+        <div class="row" id="download-section" style="display: none;">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">Descargar Análisis</span>
+                        <div class="row">
+                            <div class="col s12 right-align">
+                                <button id="download-comparative-xlsx" class="btn waves-effect waves-light blue">
+                                    <i class="material-icons left">file_download</i>
+                                    Descargar Excel
+                                </button>
+                                <button id="download-comparative-csv" class="btn waves-effect waves-light green">
+                                    <i class="material-icons left">file_download</i>
+                                    Descargar CSV
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="{{ url_for('static', filename='js/comparative_metrics.js') }}"></script>
+</body>
+</html> 

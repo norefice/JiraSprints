@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, send_file, Response
+from flask import Flask, render_template, jsonify, send_file, Response, request
 from jira_api import get_sprints, get_issues_with_details, get_sprint_details, get_sprint_name, get_task_summary, get_projects, get_boards_for_project, get_sprints_for_board, URL
 from openpyxl import Workbook
 from io import BytesIO
@@ -439,6 +439,10 @@ def download_sprint_analysis_csv(sprint_id):
 def metrics_view():
     return render_template('metrics.html')
 
+@app.route('/comparative-metrics')
+def comparative_metrics_view():
+    return render_template('comparative_metrics.html')
+
 @app.route('/api/sprints/<int:sprint_id>/advanced-metrics')
 def get_advanced_metrics(sprint_id):
     try:
@@ -845,6 +849,504 @@ def get_sprint_metrics_summary(board_id):
     except Exception as e:
         print(f"Error in metrics summary: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/metrics/comparative', methods=['POST'])
+def get_comparative_metrics():
+    """
+    Analiza múltiples sprints y devuelve métricas comparativas detalladas
+    """
+    try:
+        sprint_ids = request.json.get('sprint_ids', [])
+        if not sprint_ids or len(sprint_ids) > 10:
+            return jsonify({'error': 'Se requieren entre 1 y 10 sprints'}), 400
+        
+        sprints_data = []
+        
+        for sprint_id in sprint_ids:
+            sprint_details = get_sprint_details(sprint_id)
+            issues = get_issues_with_details(sprint_id)
+            
+            # Calcular métricas del sprint
+            sprint_metrics = calculate_comprehensive_sprint_metrics(sprint_details, issues)
+            sprints_data.append(sprint_metrics)
+        
+        return jsonify({
+            'sprints': sprints_data,
+            'analysis_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+        
+    except Exception as e:
+        print(f"Error in comparative metrics: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/metrics/comparative/download_xlsx')
+def download_comparative_analysis_xlsx():
+    """
+    Descarga análisis comparativo en formato Excel
+    """
+    try:
+        sprint_ids = request.args.get('sprint_ids', '').split(',')
+        if not sprint_ids or sprint_ids[0] == '':
+            return jsonify({'error': 'Se requieren IDs de sprints'}), 400
+        
+        sprint_ids = [int(sid) for sid in sprint_ids]
+        
+        wb = Workbook()
+        
+        # Hoja de Resumen Ejecutivo
+        ws_summary = wb.active
+        ws_summary.title = "Resumen Ejecutivo"
+        ws_summary.append(["Métricas Comparativas - Resumen Ejecutivo"])
+        ws_summary.append([""])
+        
+        # Obtener datos de todos los sprints
+        sprints_data = []
+        for sprint_id in sprint_ids:
+            sprint_details = get_sprint_details(sprint_id)
+            issues = get_issues_with_details(sprint_id)
+            sprint_metrics = calculate_comprehensive_sprint_metrics(sprint_details, issues)
+            sprints_data.append(sprint_metrics)
+        
+        # Generar insights
+        insights = generate_executive_insights(sprints_data)
+        ws_summary.append(["Insights Clave:"])
+        for insight in insights:
+            ws_summary.append([insight])
+        
+        ws_summary.append([""])
+        ws_summary.append(["Métricas por Sprint:"])
+        ws_summary.append(["Sprint", "Story Points Completados", "Horas Totales", "Eficiencia (SP/Hora)", "Ratio Bugs/Features", "Precisión Estimaciones"])
+        
+        for sprint in sprints_data:
+            efficiency = sprint['total_hours'] > 0 and (sprint['completed_points'] / sprint['total_hours']) or 0
+            bugs_ratio = calculate_bugs_ratio(sprint)
+            estimation_accuracy = calculate_estimation_accuracy(sprint)
+            
+            ws_summary.append([
+                sprint['name'],
+                sprint['completed_points'],
+                round(sprint['total_hours'], 1),
+                round(efficiency, 2),
+                f"{bugs_ratio:.1f}%",
+                f"{estimation_accuracy:.1f}%"
+            ])
+        
+        # Hoja de Métricas Individuales
+        ws_individual = wb.create_sheet(title="Métricas Individuales")
+        ws_individual.append(["Desarrollador", "Story Points Completados", "Horas Trabajadas", "Eficiencia (SP/Hora)", "Tareas Completadas"])
+        
+        individual_data = aggregate_individual_metrics(sprints_data)
+        for developer, metrics in individual_data.items():
+            efficiency = metrics['total_hours'] > 0 and (metrics['completed_points'] / metrics['total_hours']) or 0
+            ws_individual.append([
+                developer,
+                metrics['completed_points'],
+                round(metrics['total_hours'], 1),
+                round(efficiency, 2),
+                metrics['completed_tasks']
+            ])
+        
+        # Hoja de Análisis Detallado
+        ws_detailed = wb.create_sheet(title="Análisis Detallado")
+        ws_detailed.append([
+            "Sprint", "Issue Type", "Issue Key", "Summary", "Assignee", "Status", 
+            "Time Spent", "Story Points", "Story Points vs Time", "Parent Summary", "Fecha de Creación"
+        ])
+        
+        for sprint in sprints_data:
+            for issue in sprint['detailed_issues']:
+                ws_detailed.append([
+                    sprint['name'],
+                    issue['issue_type'],
+                    issue['issue_key'],
+                    issue['summary'],
+                    issue['assignee'],
+                    issue['status'],
+                    issue['time_spent'],
+                    issue['story_points'] if issue['story_points'] > 0 else None,
+                    issue['story_points_analysis'],
+                    issue['parent_summary'],
+                    issue['fecha_creacion']
+                ])
+        
+        # Ajustar ancho de columnas
+        for ws in [ws_summary, ws_individual, ws_detailed]:
+            for column in ws.columns:
+                max_length = 0
+                column = list(column)
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = (max_length + 2)
+                ws.column_dimensions[column[0].column_letter].width = adjusted_width
+        
+        file_stream = BytesIO()
+        wb.save(file_stream)
+        file_stream.seek(0)
+        
+        return send_file(
+            file_stream,
+            as_attachment=True,
+            download_name=f"comparative_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        )
+        
+    except Exception as e:
+        print(f"Error downloading comparative analysis: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/metrics/comparative/download_csv')
+def download_comparative_analysis_csv():
+    """
+    Descarga análisis comparativo en formato CSV
+    """
+    try:
+        sprint_ids = request.args.get('sprint_ids', '').split(',')
+        if not sprint_ids or sprint_ids[0] == '':
+            return jsonify({'error': 'Se requieren IDs de sprints'}), 400
+        
+        sprint_ids = [int(sid) for sid in sprint_ids]
+        
+        # Obtener datos de todos los sprints
+        sprints_data = []
+        for sprint_id in sprint_ids:
+            sprint_details = get_sprint_details(sprint_id)
+            issues = get_issues_with_details(sprint_id)
+            sprint_metrics = calculate_comprehensive_sprint_metrics(sprint_details, issues)
+            sprints_data.append(sprint_metrics)
+        
+        def generate_csv():
+            output = []
+            
+            # Resumen ejecutivo
+            output.append(["Métricas Comparativas - Resumen Ejecutivo"])
+            output.append([""])
+            
+            insights = generate_executive_insights(sprints_data)
+            output.append(["Insights Clave:"])
+            for insight in insights:
+                output.append([insight])
+            
+            output.append([""])
+            output.append(["Métricas por Sprint:"])
+            output.append(["Sprint", "Story Points Completados", "Horas Totales", "Eficiencia (SP/Hora)", "Ratio Bugs/Features", "Precisión Estimaciones"])
+            
+            for sprint in sprints_data:
+                efficiency = sprint['total_hours'] > 0 and (sprint['completed_points'] / sprint['total_hours']) or 0
+                bugs_ratio = calculate_bugs_ratio(sprint)
+                estimation_accuracy = calculate_estimation_accuracy(sprint)
+                
+                output.append([
+                    sprint['name'],
+                    sprint['completed_points'],
+                    round(sprint['total_hours'], 1),
+                    round(efficiency, 2),
+                    f"{bugs_ratio:.1f}%",
+                    f"{estimation_accuracy:.1f}%"
+                ])
+            
+            output.append([""])
+            output.append(["Métricas Individuales:"])
+            output.append(["Desarrollador", "Story Points Completados", "Horas Trabajadas", "Eficiencia (SP/Hora)", "Tareas Completadas"])
+            
+            individual_data = aggregate_individual_metrics(sprints_data)
+            for developer, metrics in individual_data.items():
+                efficiency = metrics['total_hours'] > 0 and (metrics['completed_points'] / metrics['total_hours']) or 0
+                output.append([
+                    developer,
+                    metrics['completed_points'],
+                    round(metrics['total_hours'], 1),
+                    round(efficiency, 2),
+                    metrics['completed_tasks']
+                ])
+            
+            output.append([""])
+            output.append(["Análisis Detallado:"])
+            output.append([
+                "Sprint", "Issue Type", "Issue Key", "Summary", "Assignee", "Status", 
+                "Time Spent", "Story Points", "Story Points vs Time", "Parent Summary", "Fecha de Creación"
+            ])
+            
+            for sprint in sprints_data:
+                for issue in sprint['detailed_issues']:
+                    output.append([
+                        sprint['name'],
+                        issue['issue_type'],
+                        issue['issue_key'],
+                        issue['summary'],
+                        issue['assignee'],
+                        issue['status'],
+                        issue['time_spent'],
+                        issue['story_points'] if issue['story_points'] > 0 else None,
+                        issue['story_points_analysis'],
+                        issue['parent_summary'],
+                        issue['fecha_creacion']
+                    ])
+            
+            # Escribir CSV en memoria
+            si = io.StringIO()
+            writer = csv.writer(si)
+            for row in output:
+                writer.writerow(row)
+            return si.getvalue()
+        
+        csv_data = generate_csv()
+        return Response(
+            csv_data,
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': f'attachment;filename=comparative_analysis_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+            }
+        )
+        
+    except Exception as e:
+        print(f"Error downloading comparative analysis CSV: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+def calculate_comprehensive_sprint_metrics(sprint_details, issues):
+    """
+    Calcula métricas comprehensivas para un sprint
+    """
+    # Obtener fecha de fin del sprint
+    sprint_end = sprint_details.get('endDate')
+    sprint_end_dt = None
+    if sprint_end:
+        sprint_end_date = datetime.strptime(sprint_end, '%Y-%m-%d %H:%M:%S').date()
+        sprint_end_dt = datetime.combine(sprint_end_date, datetime.max.time().replace(hour=23, minute=59, second=59, microsecond=0))
+    
+    # Métricas básicas
+    completed_points = 0
+    total_hours = 0
+    issue_type_distribution = {}
+    individual_metrics = {}
+    detailed_issues = []
+    estimation_analysis = []
+    
+    for issue in issues:
+        issue_type = issue['fields']['issuetype']['name']
+        issue_key = issue['key']
+        summary = issue['fields'].get('summary', '')
+        
+        # Assignee
+        assignee = ''
+        if issue['fields'].get('assignee'):
+            assignee = issue['fields']['assignee'].get('displayName', '')
+        
+        # Estado al final del sprint usando changelog
+        status = issue['fields']['status']['name']
+        status_at_sprint_end = status
+        changelog = issue.get('changelog', {}).get('histories', [])
+        
+        if sprint_end_dt:
+            sorted_changelog = sorted(changelog, key=lambda x: x.get('created', ''))
+            initial_status = None
+            last_status_before_sprint_end = None
+            
+            for history in sorted_changelog:
+                change_date = history.get('created')
+                if change_date:
+                    try:
+                        change_dt = datetime.strptime(change_date.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                        
+                        for item in history.get('items', []):
+                            if item.get('field') == 'status':
+                                if initial_status is None:
+                                    initial_status = item.get('fromString')
+                                
+                                if change_dt <= sprint_end_dt:
+                                    last_status_before_sprint_end = item.get('toString')
+                    except Exception:
+                        pass
+            
+            if last_status_before_sprint_end:
+                status_at_sprint_end = last_status_before_sprint_end
+            elif initial_status:
+                status_at_sprint_end = initial_status
+            else:
+                status_at_sprint_end = status
+        
+        # Time spent
+        time_spent = sum(worklog['timeSpentHours'] for worklog in issue['worklogs'])
+        total_hours += time_spent
+        
+        # Story points
+        story_points = issue['fields'].get('customfield_10030', 0)
+        if story_points is not None:
+            story_points = float(story_points)
+        else:
+            story_points = 0.0
+        
+        # Solo contar story points completados si está en estado final
+        if status_at_sprint_end in ['Done', 'For Release', 'CODE REVIEW']:
+            completed_points += story_points
+        
+        # Distribución por tipo
+        if issue_type not in issue_type_distribution:
+            issue_type_distribution[issue_type] = 0
+        issue_type_distribution[issue_type] += 1
+        
+        # Métricas individuales
+        if assignee:
+            if assignee not in individual_metrics:
+                individual_metrics[assignee] = {
+                    'developer': assignee,
+                    'completed_points': 0,
+                    'total_hours': 0,
+                    'completed_tasks': 0
+                }
+            
+            individual_metrics[assignee]['total_hours'] += time_spent
+            if status_at_sprint_end in ['Done', 'For Release', 'CODE REVIEW']:
+                individual_metrics[assignee]['completed_points'] += story_points
+                individual_metrics[assignee]['completed_tasks'] += 1
+        
+        # Análisis de estimaciones
+        if status_at_sprint_end in ['CODE REVIEW', 'For Release', 'Done']:
+            analysis = analyze_story_points_vs_time(story_points, time_spent)
+            estimation_analysis.append({
+                'issue_key': issue_key,
+                'story_points': story_points,
+                'time_spent': time_spent,
+                'analysis': analysis
+            })
+        
+        # Parent summary
+        parent_summary = ""
+        if issue['fields'].get('parent'):
+            parent_fields = issue['fields']['parent'].get('fields', {})
+            parent_summary = parent_fields.get('summary', '')
+        
+        # Fecha de creación
+        fecha_creacion = issue['fields'].get('created', '')
+        if fecha_creacion:
+            try:
+                fecha_dt = datetime.strptime(fecha_creacion.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                fecha_creacion = fecha_dt.strftime('%Y-%m-%d %H:%M:%S')
+            except:
+                pass
+        
+        # Detalles de la issue para el reporte
+        detailed_issues.append({
+            'issue_type': issue_type,
+            'issue_key': issue_key,
+            'summary': summary,
+            'assignee': assignee,
+            'status': status_at_sprint_end,
+            'time_spent': time_spent,
+            'story_points': story_points,
+            'story_points_analysis': analyze_story_points_vs_time(story_points, time_spent) if status_at_sprint_end in ['CODE REVIEW', 'For Release', 'Done'] else "",
+            'parent_summary': parent_summary,
+            'fecha_creacion': fecha_creacion
+        })
+    
+    return {
+        'id': sprint_details['id'],
+        'name': sprint_details['name'],
+        'start_date': sprint_details.get('startDate'),
+        'end_date': sprint_details.get('endDate'),
+        'completed_points': completed_points,
+        'total_hours': total_hours,
+        'issue_type_distribution': issue_type_distribution,
+        'individual_metrics': list(individual_metrics.values()),
+        'detailed_issues': detailed_issues,
+        'estimation_analysis': estimation_analysis
+    }
+
+def generate_executive_insights(sprints_data):
+    """
+    Genera insights ejecutivos basados en los datos de los sprints
+    """
+    insights = []
+    
+    if not sprints_data:
+        return ["No hay datos suficientes para generar insights"]
+    
+    # Velocity insights
+    velocities = [s['completed_points'] for s in sprints_data]
+    avg_velocity = sum(velocities) / len(velocities)
+    latest_velocity = velocities[-1]
+    
+    if latest_velocity < avg_velocity * 0.8:
+        insights.append(f"⚠️ Velocity baja: El último sprint ({latest_velocity} SP) está {((avg_velocity - latest_velocity) / avg_velocity * 100):.1f}% por debajo del promedio")
+    elif latest_velocity > avg_velocity * 1.2:
+        insights.append(f"🚀 Velocity excelente: El último sprint superó el promedio en {((latest_velocity - avg_velocity) / avg_velocity * 100):.1f}%")
+    
+    # Bugs ratio insights
+    latest_sprint = sprints_data[-1]
+    bugs_ratio = calculate_bugs_ratio(latest_sprint)
+    if bugs_ratio > 25:
+        insights.append(f"🐛 Alto ratio de bugs: {bugs_ratio:.1f}% de las tareas son bugs")
+    
+    # Estimation accuracy insights
+    estimation_accuracy = calculate_estimation_accuracy(latest_sprint)
+    if estimation_accuracy < 70:
+        insights.append(f"📊 Baja precisión de estimaciones: {estimation_accuracy:.1f}% de las estimaciones fueron correctas")
+    
+    return insights
+
+def calculate_bugs_ratio(sprint_data):
+    """
+    Calcula el ratio de bugs vs features
+    """
+    bugs = sprint_data['issue_type_distribution'].get('Bug', 0)
+    features = sprint_data['issue_type_distribution'].get('Story', 0) + sprint_data['issue_type_distribution'].get('Task', 0)
+    return (bugs / features * 100) if features > 0 else 0
+
+def calculate_estimation_accuracy(sprint_data):
+    """
+    Calcula la precisión de las estimaciones
+    """
+    estimations = sprint_data['estimation_analysis']
+    if not estimations:
+        return 0
+    
+    correct = len([e for e in estimations if e['analysis'] == 'Correcto'])
+    return (correct / len(estimations)) * 100
+
+def aggregate_individual_metrics(sprints_data):
+    """
+    Agrega métricas individuales de todos los sprints
+    """
+    aggregated = {}
+    
+    for sprint in sprints_data:
+        # individual_metrics es una lista de diccionarios con los datos
+        # pero necesitamos reconstruir el mapeo de desarrollador -> métricas
+        # Vamos a usar los detailed_issues para reconstruir esto
+        developer_metrics = {}
+        
+        for issue in sprint['detailed_issues']:
+            assignee = issue['assignee']
+            if assignee:
+                if assignee not in developer_metrics:
+                    developer_metrics[assignee] = {
+                        'completed_points': 0,
+                        'total_hours': 0,
+                        'completed_tasks': 0
+                    }
+                
+                developer_metrics[assignee]['total_hours'] += issue['time_spent']
+                
+                if issue['status'] in ['Done', 'For Release', 'CODE REVIEW']:
+                    developer_metrics[assignee]['completed_points'] += issue['story_points']
+                    developer_metrics[assignee]['completed_tasks'] += 1
+        
+        # Agregar al total agregado
+        for developer, metrics in developer_metrics.items():
+            if developer not in aggregated:
+                aggregated[developer] = {
+                    'completed_points': 0,
+                    'total_hours': 0,
+                    'completed_tasks': 0
+                }
+            
+            aggregated[developer]['completed_points'] += metrics['completed_points']
+            aggregated[developer]['total_hours'] += metrics['total_hours']
+            aggregated[developer]['completed_tasks'] += metrics['completed_tasks']
+    
+    return aggregated
 
 if __name__ == '__main__':
     app.run(debug=True)
