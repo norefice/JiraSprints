@@ -273,7 +273,7 @@ def download_sprint_analysis(sprint_id):
             summary,
             assignee,
             status_at_sprint_end,
-            time_spent,  # valor numérico
+            time_spent,  # valor numérico - worklogs ya filtrados por sprint
             story_points if story_points > 0 else None,  # valor numérico o celda vacía
             story_points_analysis,
             parent_summary,
@@ -383,6 +383,7 @@ def download_sprint_analysis_csv(sprint_id):
                 else:
                     # Si no hay changelog, usar el estado actual como fallback
                     status_at_sprint_end = status
+            # Los worklogs ya están filtrados por sprint en get_issues_with_details
             time_spent = sum(worklog['timeSpentHours'] for worklog in issue['worklogs'])
             story_points = issue['fields'].get('customfield_10030', 0)
             if story_points is not None:
@@ -1118,6 +1119,7 @@ def calculate_comprehensive_sprint_metrics(sprint_details, issues):
     
     # Métricas básicas
     completed_points = 0
+    estimated_points = 0  # Puntos estimados totales del sprint
     total_hours = 0
     issue_type_distribution = {}
     individual_metrics = {}
@@ -1167,7 +1169,7 @@ def calculate_comprehensive_sprint_metrics(sprint_details, issues):
             else:
                 status_at_sprint_end = status
         
-        # Time spent
+        # Time spent - worklogs ya están filtrados por sprint en get_issues_with_details
         time_spent = sum(worklog['timeSpentHours'] for worklog in issue['worklogs'])
         total_hours += time_spent
         
@@ -1177,6 +1179,10 @@ def calculate_comprehensive_sprint_metrics(sprint_details, issues):
             story_points = float(story_points)
         else:
             story_points = 0.0
+        
+        # Contar puntos estimados totales (solo para Task y Story)
+        if issue_type in ['Task', 'Story'] and story_points > 0:
+            estimated_points += story_points
         
         # Solo contar story points completados si está en estado final
         if status_at_sprint_end in ['Done', 'For Release', 'CODE REVIEW']:
@@ -1247,6 +1253,7 @@ def calculate_comprehensive_sprint_metrics(sprint_details, issues):
         'start_date': sprint_details.get('startDate'),
         'end_date': sprint_details.get('endDate'),
         'completed_points': completed_points,
+        'estimated_points': estimated_points,  # Puntos estimados totales
         'total_hours': total_hours,
         'issue_type_distribution': issue_type_distribution,
         'individual_metrics': list(individual_metrics.values()),

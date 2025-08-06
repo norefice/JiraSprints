@@ -251,13 +251,22 @@ $(document).ready(function() {
             type: 'bar',
             data: {
                 labels: data.sprints.map(s => s.name),
-                datasets: [{
-                    label: 'Story Points Completados',
-                    data: data.sprints.map(s => s.completed_points),
-                    backgroundColor: 'rgba(54, 162, 235, 0.8)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
+                datasets: [
+                    {
+                        label: 'Story Points Completados',
+                        data: data.sprints.map(s => s.completed_points),
+                        backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Story Points Estimados',
+                        data: data.sprints.map(s => s.estimated_points || 0),
+                        backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    }
+                ]
             },
             options: {
                 responsive: true,

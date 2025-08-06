@@ -79,6 +79,8 @@ def filter_worklogs_by_sprint(worklogs, sprint_start, sprint_end):
     filtered_worklogs = []
     for worklog in worklogs:
         worklog_date = datetime.strptime(worklog['started'], '%Y-%m-%dT%H:%M:%S.%f%z')
+        # Convertir worklog_date a la misma timezone que sprint_start y sprint_end
+        worklog_date = worklog_date.astimezone(sprint_start.tzinfo)
         if sprint_start <= worklog_date <= sprint_end:
             filtered_worklogs.append(worklog)
     return filtered_worklogs
@@ -109,7 +111,9 @@ def get_issues_with_details(sprint_id):
     
     # Convertir las fechas de string a datetime objetos en UTC-3
     sprint_start = datetime.strptime(sprint_details['startDate'], '%Y-%m-%d %H:%M:%S')
-    sprint_end = datetime.strptime(sprint_details['endDate'], '%Y-%m-%d %H:%M:%S')
+    sprint_end_date = datetime.strptime(sprint_details['endDate'], '%Y-%m-%d %H:%M:%S').date()
+    # Ajustar la hora de cierre del sprint a las 23:59:59
+    sprint_end = datetime.combine(sprint_end_date, datetime.max.time().replace(hour=23, minute=59, second=59, microsecond=0))
     tz = pytz.timezone('America/Sao_Paulo')
     sprint_start = tz.localize(sprint_start)
     sprint_end = tz.localize(sprint_end)
