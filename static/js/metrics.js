@@ -105,6 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
             renderSayDoChart(summary);
             renderWorkDistributionChart(summary);
             renderBugsChart(summary);
+            renderSupportChart(summary);
             $('#metrics-summary-progress').hide();
             $('.metrics-summary-dashboard').show();
         }).fail(function() {
@@ -114,7 +115,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderSummaryTable(summary) {
         let html = `<table class="striped responsive-table"><thead><tr>
-            <th>Sprint</th><th>Fechas</th><th>Comprometidos</th><th>Completados</th><th>Say/Do Ratio (%)</th><th>Bugs Creados</th><th>Bugs Resueltos</th><th>Prom. Resolución Bugs (días)</th>
+            <th>Sprint</th><th>Fechas</th><th>Comprometidos</th><th>Completados</th><th>Say/Do Ratio (%)</th><th>Bugs Creados</th><th>Bugs Resueltos</th><th>Prom. Resolución Bugs (días)</th><th>Support Creados</th><th>Support Resueltos</th><th>Prom. Resolución Support (días)</th>
         </tr></thead><tbody>`;
         summary.forEach(s => {
             html += `<tr>
@@ -126,6 +127,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td>${s.bugs.created}</td>
                 <td>${s.bugs.resolved}</td>
                 <td>${s.bugs.avg_resolution_days.toFixed(1)}</td>
+                <td>${s.support ? s.support.created : 0}</td>
+                <td>${s.support ? s.support.resolved : 0}</td>
+                <td>${s.support ? s.support.avg_resolution_days.toFixed(1) : '0.0'}</td>
             </tr>`;
         });
         html += '</tbody></table>';
@@ -240,6 +244,60 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         html += '</tbody></table>';
         $('#bugs-table').html(html);
+    }
+    
+    function renderSupportChart(summary) {
+        if (charts.support) charts.support.destroy();
+        const ctx = document.getElementById('support-chart').getContext('2d');
+        // Support creados y resueltos por sprint
+        charts.support = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: summary.map(s => s.sprint_name),
+                datasets: [
+                    {
+                        label: 'Support Creados',
+                        data: summary.map(s => s.support ? s.support.created : 0),
+                        borderColor: '#ff9800',
+                        backgroundColor: 'rgba(255,152,0,0.2)',
+                        fill: true
+                    },
+                    {
+                        label: 'Support Resueltos',
+                        data: summary.map(s => s.support ? s.support.resolved : 0),
+                        borderColor: '#4caf50',
+                        backgroundColor: 'rgba(76,175,80,0.2)',
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: { display: true, text: 'Support Creados y Resueltos por Sprint' }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+        // Tabla de prioridad
+        let html = '<h6>Prioridad de Support (acumulado 5 sprints)</h6><table class="striped"><thead><tr><th>Prioridad</th><th>Cantidad</th></tr></thead><tbody>';
+        // Sumar prioridad
+        const priorityTotals = {};
+        summary.forEach(s => {
+            if (s.support && s.support.priority) {
+                Object.entries(s.support.priority).forEach(([pri, count]) => {
+                    if (!priorityTotals[pri]) priorityTotals[pri] = 0;
+                    priorityTotals[pri] += count;
+                });
+            }
+        });
+        Object.entries(priorityTotals).forEach(([pri, count]) => {
+            html += `<tr><td>${pri}</td><td>${count}</td></tr>`;
+        });
+        html += '</tbody></table>';
+        $('#support-table').html(html);
     }
     
     function updateVelocityTrend(velocityData) {

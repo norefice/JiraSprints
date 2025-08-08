@@ -524,7 +524,7 @@ def calculate_velocity_metrics(issues):
     }
 
     for issue in issues:
-        # Solo considerar historias y tareas técnicas
+        # Solo considerar historias y tareas técnicas (excluyendo Support, Bug y Spike que no se estiman en puntos)
         if issue['fields']['issuetype']['name'] in ['Story', 'Task']:
             # Obtener puntos comprometidos y completados
             story_points = issue['fields'].get('customfield_10030') or issue['fields'].get('customfield_10016', 0)
@@ -778,6 +778,10 @@ def get_sprint_metrics_summary(board_id):
             bugs_resolved = 0
             bug_severity = {}
             bug_resolution_times = []
+            support_created = 0
+            support_resolved = 0
+            support_priority = {}
+            support_resolution_times = []
             for issue in issues:
                 print(f"Issue: {issue}")
                 issue_type = issue['fields']['issuetype']['name']
@@ -796,7 +800,7 @@ def get_sprint_metrics_summary(board_id):
                         story_points = 0
                 else:
                     story_points = 0
-                # Comprometidos: todos los issues con story points
+                # Comprometidos: todos los issues con story points (excluyendo Support, Bug y Spike que no se estiman en puntos)
                 if issue_type in ['Story', 'Task']:
                     committed_points += story_points
                     committed_issues += 1
@@ -827,9 +831,34 @@ def get_sprint_metrics_summary(board_id):
                                     bug_resolution_times.append(days)
                             except Exception:
                                 pass
+                
+                # Support
+                if issue_type == 'Support':
+                    support_created += 1
+                    # Prioridad
+                    priority = issue['fields'].get('priority', {}).get('name', 'Sin prioridad')
+                    if priority not in support_priority:
+                        support_priority[priority] = 0
+                    support_priority[priority] += 1
+                    # Resueltos
+                    if issue_status.upper() in ['DONE', 'CLOSED', 'FOR RELEASE']:
+                        support_resolved += 1
+                        # Tiempo de resolución
+                        created = issue['fields'].get('created')
+                        resolved = issue['fields'].get('resolutiondate')
+                        if created and resolved:
+                            try:
+                                created_dt = datetime.strptime(created.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                                resolved_dt = datetime.strptime(resolved.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                                days = (resolved_dt - created_dt).days
+                                if days >= 0:
+                                    support_resolution_times.append(days)
+                            except Exception:
+                                pass
             # Ratio de fiabilidad
             say_do_ratio = (completed_points / committed_points * 100) if committed_points > 0 else 0
             avg_bug_resolution = sum(bug_resolution_times) / len(bug_resolution_times) if bug_resolution_times else 0
+            avg_support_resolution = sum(support_resolution_times) / len(support_resolution_times) if support_resolution_times else 0
             summary.append({
                 'sprint_id': sprint_id,
                 'sprint_name': sprint_name,
@@ -844,6 +873,12 @@ def get_sprint_metrics_summary(board_id):
                     'resolved': bugs_resolved,
                     'severity': bug_severity,
                     'avg_resolution_days': avg_bug_resolution
+                },
+                'support': {
+                    'created': support_created,
+                    'resolved': support_resolved,
+                    'priority': support_priority,
+                    'avg_resolution_days': avg_support_resolution
                 }
             })
         return jsonify(summary)
@@ -916,11 +951,12 @@ def download_comparative_analysis_xlsx():
         
         ws_summary.append([""])
         ws_summary.append(["Métricas por Sprint:"])
-        ws_summary.append(["Sprint", "Story Points Completados", "Horas Totales", "Eficiencia (SP/Hora)", "Ratio Bugs/Features", "Precisión Estimaciones"])
+        ws_summary.append(["Sprint", "Story Points Completados", "Horas Totales", "Eficiencia (SP/Hora)", "Ratio Bugs/Features", "Ratio Support/Features", "Precisión Estimaciones"])
         
         for sprint in sprints_data:
             efficiency = sprint['total_hours'] > 0 and (sprint['completed_points'] / sprint['total_hours']) or 0
             bugs_ratio = calculate_bugs_ratio(sprint)
+            support_ratio = calculate_support_ratio(sprint)
             estimation_accuracy = calculate_estimation_accuracy(sprint)
             
             ws_summary.append([
@@ -929,6 +965,7 @@ def download_comparative_analysis_xlsx():
                 round(sprint['total_hours'], 1),
                 round(efficiency, 2),
                 f"{bugs_ratio:.1f}%",
+                f"{support_ratio:.1f}%",
                 f"{estimation_accuracy:.1f}%"
             ])
         
@@ -1032,11 +1069,12 @@ def download_comparative_analysis_csv():
             
             output.append([""])
             output.append(["Métricas por Sprint:"])
-            output.append(["Sprint", "Story Points Completados", "Horas Totales", "Eficiencia (SP/Hora)", "Ratio Bugs/Features", "Precisión Estimaciones"])
+            output.append(["Sprint", "Story Points Completados", "Horas Totales", "Eficiencia (SP/Hora)", "Ratio Bugs/Features", "Ratio Support/Features", "Precisión Estimaciones"])
             
             for sprint in sprints_data:
                 efficiency = sprint['total_hours'] > 0 and (sprint['completed_points'] / sprint['total_hours']) or 0
                 bugs_ratio = calculate_bugs_ratio(sprint)
+                support_ratio = calculate_support_ratio(sprint)
                 estimation_accuracy = calculate_estimation_accuracy(sprint)
                 
                 output.append([
@@ -1045,6 +1083,7 @@ def download_comparative_analysis_csv():
                     round(sprint['total_hours'], 1),
                     round(efficiency, 2),
                     f"{bugs_ratio:.1f}%",
+                    f"{support_ratio:.1f}%",
                     f"{estimation_accuracy:.1f}%"
                 ])
             
@@ -1180,7 +1219,7 @@ def calculate_comprehensive_sprint_metrics(sprint_details, issues):
         else:
             story_points = 0.0
         
-        # Contar puntos estimados totales (solo para Task y Story)
+        # Contar puntos estimados totales (solo para Task y Story, excluyendo Support, Bug y Spike)
         if issue_type in ['Task', 'Story'] and story_points > 0:
             estimated_points += story_points
         
@@ -1286,6 +1325,11 @@ def generate_executive_insights(sprints_data):
     if bugs_ratio > 25:
         insights.append(f"🐛 Alto ratio de bugs: {bugs_ratio:.1f}% de las tareas son bugs")
     
+    # Support ratio insights
+    support_ratio = calculate_support_ratio(latest_sprint)
+    if support_ratio > 30:
+        insights.append(f"🆘 Alto ratio de support: {support_ratio:.1f}% de las tareas son support")
+    
     # Estimation accuracy insights
     estimation_accuracy = calculate_estimation_accuracy(latest_sprint)
     if estimation_accuracy < 70:
@@ -1300,6 +1344,14 @@ def calculate_bugs_ratio(sprint_data):
     bugs = sprint_data['issue_type_distribution'].get('Bug', 0)
     features = sprint_data['issue_type_distribution'].get('Story', 0) + sprint_data['issue_type_distribution'].get('Task', 0)
     return (bugs / features * 100) if features > 0 else 0
+
+def calculate_support_ratio(sprint_data):
+    """
+    Calcula el ratio de support vs features
+    """
+    support = sprint_data['issue_type_distribution'].get('Support', 0)
+    features = sprint_data['issue_type_distribution'].get('Story', 0) + sprint_data['issue_type_distribution'].get('Task', 0)
+    return (support / features * 100) if features > 0 else 0
 
 def calculate_estimation_accuracy(sprint_data):
     """

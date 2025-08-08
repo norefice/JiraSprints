@@ -197,6 +197,7 @@ $(document).ready(function() {
         renderEfficiencyChart(data);
         renderIssueDistributionChart(data);
         renderBugsRatioChart(data);
+        renderSupportRatioChart(data);
         renderEstimationQualityChart(data);
         renderTeamMetricsTable(data);
         
@@ -383,6 +384,42 @@ $(document).ready(function() {
             }
         });
     }
+    
+    function renderSupportRatioChart(data) {
+        const ctx = document.getElementById('support-ratio-chart').getContext('2d');
+        
+        if (charts.supportRatio) {
+            charts.supportRatio.destroy();
+        }
+        
+        const ratios = data.sprints.map(sprint => {
+            const support = sprint.issue_type_distribution.Support || 0;
+            const features = (sprint.issue_type_distribution.Story || 0) + (sprint.issue_type_distribution.Task || 0);
+            return features > 0 ? ((support / features) * 100).toFixed(1) : 0;
+        });
+        
+        charts.supportRatio = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.sprints.map(s => s.name),
+                datasets: [{
+                    label: 'Ratio Support/Features (%)',
+                    data: ratios,
+                    backgroundColor: 'rgba(255, 152, 0, 0.8)',
+                    borderColor: 'rgba(255, 152, 0, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
 
     function renderEstimationQualityChart(data) {
         const ctx = document.getElementById('estimation-quality-chart').getContext('2d');
@@ -438,6 +475,7 @@ $(document).ready(function() {
                         <th>Horas Totales</th>
                         <th>Eficiencia (SP/Hora)</th>
                         <th>Ratio Bugs/Features</th>
+                        <th>Ratio Support/Features</th>
                         <th>Precisión Estimaciones</th>
                     </tr>
                 </thead>
@@ -448,6 +486,8 @@ $(document).ready(function() {
             const efficiency = sprint.total_hours > 0 ? (sprint.completed_points / sprint.total_hours).toFixed(2) : '0';
             const bugsRatio = ((sprint.issue_type_distribution.Bug || 0) / 
                 ((sprint.issue_type_distribution.Story || 0) + (sprint.issue_type_distribution.Task || 0)) * 100).toFixed(1);
+            const supportRatio = ((sprint.issue_type_distribution.Support || 0) / 
+                ((sprint.issue_type_distribution.Story || 0) + (sprint.issue_type_distribution.Task || 0)) * 100).toFixed(1);
             
             table += `
                 <tr>
@@ -456,6 +496,7 @@ $(document).ready(function() {
                     <td>${sprint.total_hours.toFixed(1)}</td>
                     <td>${efficiency}</td>
                     <td>${bugsRatio}%</td>
+                    <td>${supportRatio}%</td>
                     <td>${calculateEstimationAccuracy(sprint)}%</td>
                 </tr>
             `;
@@ -739,6 +780,18 @@ $(document).ready(function() {
                 type: 'alert',
                 title: '🐛 Alto Ratio de Bugs',
                 description: `El ${(bugsRatio * 100).toFixed(1)}% de las tareas son bugs. Considera mejorar la calidad del código.`
+            });
+        }
+        
+        // Support ratio insights
+        const supportRatio = (latestSprint.issue_type_distribution.Support || 0) / 
+            ((latestSprint.issue_type_distribution.Story || 0) + (latestSprint.issue_type_distribution.Task || 0));
+        
+        if (supportRatio > 0.30) {
+            insights.push({
+                type: 'alert',
+                title: '🆘 Alto Ratio de Support',
+                description: `El ${(supportRatio * 100).toFixed(1)}% de las tareas son support. Considera revisar la carga de trabajo de soporte.`
             });
         }
         

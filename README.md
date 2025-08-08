@@ -71,7 +71,7 @@ Una aplicación web completa para visualizar, analizar y generar reportes detall
 
 ### 1. Clonar el Repositorio
 ```bash
-git clone https://github.com/yourusername/JiraSprints.git
+git clone https://github.com/norefice/JiraSprints.git
 cd JiraSprints
 ```
 
@@ -153,9 +153,10 @@ Abrir el navegador y navegar a: `http://localhost:5000`
 
 ### Tipos de Issues
 - **Task**: Tareas estimables en puntos
-- **Bug**: Errores o ajustes en la aplicación
 - **Story**: Funcionalidades estimables en puntos
-- **Spike**: Análisis, investigación, estimaciones
+- **Bug**: Errores o ajustes en la aplicación (no estimado en puntos, solo logueo de horas)
+- **Spike**: Análisis, investigación, estimaciones (no estimado en puntos, solo logueo de horas)
+- **Support**: Tareas de soporte técnico (no estimado en puntos, solo logueo de horas)
 
 ## 🔧 Configuración Avanzada
 
