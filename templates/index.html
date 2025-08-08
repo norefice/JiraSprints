@@ -1,133 +1,225 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>JIRA Sprints</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JIRA Sprints - Dashboard</title>
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link href="/static/css/styles.css" rel="stylesheet"> <!-- Cargar el archivo CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+    <link href="/static/css/styles.css" rel="stylesheet">
 </head>
 <body>
+    <!-- Navigation -->
     <nav>
-        <div class="nav-wrapper blue darken-1">
-            <div class="container">
-                <a href="/" class="brand-logo">JIRA Sprints</a>
-                <ul id="nav-mobile" class="right">
-                    <li class="active"><a href="/">Dashboard</a></li>
-                    <li><a href="/metrics">Metrics</a></li>
-                    <li><a href="/comparative-metrics">Métricas Comparativas</a></li>
-                </ul>
-            </div>
+        <div class="nav-wrapper">
+            <a href="/" class="brand-logo">
+                <i class="material-icons">dashboard</i>
+                JIRA Sprints
+            </a>
+            <ul id="nav-mobile" class="right">
+                <li class="active"><a href="/"><i class="material-icons">home</i>Dashboard</a></li>
+                <li><a href="/active"><i class="material-icons">play_circle</i>Sprint Activo</a></li>
+                <li><a href="/metrics"><i class="material-icons">analytics</i>Métricas</a></li>
+                <li><a href="/comparative-metrics"><i class="material-icons">compare</i>Comparativas</a></li>
+            </ul>
         </div>
     </nav>
 
+    <!-- Main Content -->
     <div class="container">
-        <div class="card">
-            <div class="card-content">
-                <span class="card-title">JIRA Sprints</span>
-                <div class="row">
-                    <div class="input-field col s4">
-                        <select id="project-select">
-                            <option value="" disabled selected>Choose your project</option>
-                        </select>
-                        <label>Select Project</label>
+        <!-- Header -->
+        <div class="row">
+            <div class="col s12">
+                <h4>Dashboard de Sprints</h4>
+                <p class="flow-text">Analiza y gestiona el rendimiento de tus sprints de Jira</p>
+            </div>
+        </div>
+
+        <!-- Project Selection -->
+        <div class="row">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">
+                            <i class="material-icons left">settings</i>
+                            Configuración del Proyecto
+                        </span>
+                        <div class="row">
+                            <div class="input-field col s12 m4">
+                                <select id="project-select">
+                                    <option value="" disabled selected>Selecciona un proyecto</option>
+                                </select>
+                                <label>Proyecto</label>
+                            </div>
+                            <div class="input-field col s12 m4">
+                                <select id="board-select" disabled>
+                                    <option value="" disabled selected>Selecciona un tablero</option>
+                                </select>
+                                <label>Tablero</label>
+                            </div>
+                            <div class="input-field col s12 m4">
+                                <select id="sprint-select" disabled>
+                                    <option value="" disabled selected>Selecciona un sprint</option>
+                                </select>
+                                <label>Sprint</label>
+                            </div>
+                        </div>
+                        
+                        <!-- Loading Progress -->
+                        <div class="progress" id="loading-spinner" style="display: none;">
+                            <div class="indeterminate"></div>
+                        </div>
+                        
+                        <!-- Sprint Details -->
+                        <div id="sprint-details"></div>
+                        
+                        <!-- Download Buttons -->
+                        <div class="row" id="download-buttons" style="display: none;">
+                            <div class="col s12 right-align">
+                                <div class="btn-group">
+                                    <button id="download-sprint-analysis-csv" class="btn waves-effect waves-light blue">
+                                        <i class="material-icons left">file_download</i>
+                                        Descargar CSV
+                                    </button>
+                                    <button id="download-sprint-analysis" class="btn waves-effect waves-light green">
+                                        <i class="material-icons left">assessment</i>
+                                        Descargar Análisis
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="input-field col s4">
-                        <select id="board-select" disabled>
-                            <option value="" disabled selected>Choose your board</option>
-                        </select>
-                        <label>Select Board</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Worklogs Section -->
+        <div class="row">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <div class="row" style="margin-bottom: 0;">
+                            <div class="col s12 m6">
+                                <span class="card-title">
+                                    <i class="material-icons left">schedule</i>
+                                    Registro de Horas
+                                </span>
+                            </div>
+                            <div class="col s12 m6 right-align">
+                                <button id="download-worklogs" class="btn-small waves-effect waves-light green" style="display: none;">
+                                    <i class="material-icons left">file_download</i>
+                                    Descargar Worklogs
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Clave</th>
+                                        <th>Resumen</th>
+                                        <th>Usuario</th>
+                                        <th>Tiempo</th>
+                                        <th>Enlace</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="worklog-table-body">
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div class="input-field col s4">
-                        <select id="sprint-select" disabled>
-                            <option value="" disabled selected>Choose your sprint</option>
-                        </select>
-                        <label>Select Sprint</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Task Summary Section -->
+        <div class="row">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">
+                            <i class="material-icons left">summarize</i>
+                            Resumen de Tareas
+                        </span>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Tipo de Tarea</th>
+                                        <th>Cantidad</th>
+                                        <th>Horas Totales</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="task-summary-table-body">
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
-                <div class="progress" id="loading-spinner" style="display: none;">
-                    <div class="indeterminate"></div>
-                </div>
-                <div id="sprint-details"></div>
-                <button id="download-sprint-analysis" class="btn waves-effect waves-light green right" style="display: none;">
-                    <i class="material-icons left">assessment</i>
-                    Download Sprint Analysis
-                </button>
-                <button id="download-sprint-analysis-csv" class="btn waves-effect waves-light blue right" style="display: none; margin-right: 10px;">
-                    <i class="material-icons left">file_download</i>
-                    Download CSV
-                </button>
             </div>
         </div>
-        <div class="section">
-            <div class="card">
-                <div class="card-content">
-                    <h5>Worklogs</h5>
-                    <button id="download-worklogs" class="btn-small waves-effect waves-light green right" style="display: none;">
-                        <i class="material-icons left">file_download</i>
-                        Download Worklogs
-                    </button>
-                    <table class="striped">
-                        <thead>
-                            <tr>
-                                <th>Task Key</th>
-                                <th>Summary</th>
-                                <th>User</th>
-                                <th>Time Spent</th>
-                                <th>Link</th>
-                            </tr>
-                        </thead>
-                        <tbody id="worklog-table-body">
-                        </tbody>
-                    </table>
+
+        <!-- Task List Section -->
+        <div class="row">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">
+                            <i class="material-icons left">list</i>
+                            Lista de Tareas
+                        </span>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Clave</th>
+                                        <th>Resumen</th>
+                                        <th>Estado</th>
+                                        <th>Story Points</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="task-list-table-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="section">
-            <div class="card">
-                <div class="card-content">
-                    <h5>Task Summary</h5>
-                    <table class="striped">
-                        <thead>
-                            <tr>
-                                <th>Task Type</th>
-                                <th>Count</th>
-                                <th>Total Hours</th>
-                            </tr>
-                        </thead>
-                        <tbody id="task-summary-table-body">
-                        </tbody>
-                    </table>
+
+        <!-- Charts Section -->
+        <div class="row">
+            <div class="col s12">
+                <div class="card">
+                    <div class="card-content">
+                        <span class="card-title">
+                            <i class="material-icons left">insert_chart</i>
+                            Visualizaciones
+                        </span>
+                        <div class="chart-container">
+                            <div class="card-panel">
+                                <h6>Distribución por Tipo de Tarea</h6>
+                                <canvas id="task-summary-chart"></canvas>
+                            </div>
+                            <div class="card-panel">
+                                <h6>Horas por Tipo de Tarea</h6>
+                                <canvas id="task-hours-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="section">
-            <div class="card">
-                <div class="card-content">
-                    <h5>Task List</h5>
-                    <table class="striped">
-                        <thead>
-                            <tr>
-                                <th>Task Key</th>
-                                <th>Summary</th>
-                                <th>Status</th>
-                                <th>Story Points</th>
-                            </tr>
-                        </thead>
-                        <tbody id="task-list-table-body">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <div class="section chart-container">
-            <canvas id="task-summary-chart"></canvas>
-            <canvas id="task-hours-chart"></canvas>
-        </div>
-        <a id="download-button" class="btn-floating btn-large waves-effect waves-light green darken-3 pulse" href="#" download style="position: fixed; bottom: 20px; right: 20px; display: none;">
-            <i class="material-icons">file_download</i>
-        </a>
     </div>
+
+    <!-- Floating Action Button -->
+    <a id="download-button" class="btn-floating btn-large waves-effect waves-light green pulse" href="#" download style="display: none;">
+        <i class="material-icons">file_download</i>
+    </a>
+
+    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

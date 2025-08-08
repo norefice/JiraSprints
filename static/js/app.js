@@ -4,14 +4,11 @@ let taskSummaryChart;
 let taskHoursChart;
 
 $(document).ready(function() {
-    $('select').formSelect();
-
     // Obtener y listar los proyectos
     $.get('/api/projects', function(data) {
         data.forEach(function(project) {
             $('#project-select').append(`<option value="${project.id}">${project.name}</option>`);
         });
-        $('select').formSelect();
     });
 
     // Manejar la selección de proyectos
@@ -19,12 +16,10 @@ $(document).ready(function() {
         const projectId = $(this).val();
         $('#board-select').empty().append('<option value="" disabled selected>Choose your board</option>');
         $('#board-select').prop('disabled', false);
-        $('select').formSelect();
         $.get(`/api/projects/${projectId}/boards`, function(data) {
             data.forEach(function(board) {
                 $('#board-select').append(`<option value="${board.id}">${board.name}</option>`);
             });
-            $('select').formSelect();
         });
     });
 
@@ -33,7 +28,6 @@ $(document).ready(function() {
         const boardId = $(this).val();
         $('#sprint-select').empty().append('<option value="" disabled selected>Choose your sprint</option>');
         $('#sprint-select').prop('disabled', false);
-        $('select').formSelect();
         $.get(`/api/boards/${boardId}/sprints`, function(data) {
             const today = new Date();
             // Filtrar sprints que ya han comenzado
@@ -50,7 +44,6 @@ $(document).ready(function() {
                 const activeBadge = sprint.state === 'active' ? '<span class="new badge blue" data-badge-caption="Activo"></span>' : '';
                 $('#sprint-select').append(`<option value="${sprint.id}">${sprint.name} ${activeBadge}</option>`);
             });
-            $('select').formSelect();
         });
     });
 
@@ -238,6 +231,7 @@ $(document).ready(function() {
 
             $('#loading-spinner').hide();
             $('#download-button').attr('href', `/api/sprints/${sprintId}/issues/download`).show();
+            $('#download-buttons').show();
             $('#download-worklogs')
                 .attr('onclick', `window.location.href='/api/sprints/${sprintId}/worklogs/download'`)
                 .show();
@@ -254,16 +248,24 @@ $(document).ready(function() {
 function getStatusColor(status) {
     switch (status.toUpperCase()) {
         case 'TODO':
-            return 'grey lighten-2';
+            return 'todo';
         case 'IN PROGRESS':
-            return 'light-blue';
+            return 'in-progress';
+        case 'CODE REVIEW':
+            return 'code-review';
         case 'FOR RELEASE':
-            return 'green lighten-3';
+            return 'for-release';
         case 'DONE':
-            return 'green darken-3';
+        case 'COMPLETED':
+            return 'done';
         case 'REJECTED':
-            return 'amber';
+            return 'rejected';
+        case 'BLOCKED':
+        case 'ERROR':
+            return 'error';
+        case 'WARNING':
+            return 'warning';
         default:
-            return '';
+            return 'grey';
     }
 }

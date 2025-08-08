@@ -1,15 +1,11 @@
 document.addEventListener('DOMContentLoaded', function() {
     const charts = {};
     
-    // Inicializar selects de Materialize
-    $('select').formSelect();
-    
     // Cargar proyectos
     $.get('/api/projects', function(projects) {
         projects.forEach(project => {
             $('#project-select').append(`<option value="${project.id}">${project.name}</option>`);
         });
-        $('select').formSelect();
     });
     
     // Event listeners para los selects
@@ -40,7 +36,6 @@ document.addEventListener('DOMContentLoaded', function() {
             boards.forEach(board => {
                 $('#board-select').append(`<option value="${board.id}">${board.name}</option>`);
             });
-            $('select').formSelect();
         });
     }
 
@@ -65,7 +60,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const activeBadge = sprint.state === 'active' ? ' (Active)' : '';
                 $('#sprint-select').append(`<option value="${sprint.id}">${sprint.name}${activeBadge}</option>`);
             });
-            $('select').formSelect();
         });
     }
 

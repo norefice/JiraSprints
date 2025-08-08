@@ -3,8 +3,10 @@ $(document).ready(function() {
     let analysisData = null;
     let charts = {};
 
-    // Inicializar Materialize
-    M.AutoInit();
+    // Simple Materialize initialization
+    if (typeof M !== 'undefined') {
+        M.AutoInit();
+    }
 
     // Cargar proyectos al inicio
     loadProjects();
@@ -51,8 +53,6 @@ $(document).ready(function() {
             projects.forEach(project => {
                 select.append(`<option value="${project.id}">${project.name}</option>`);
             });
-            
-            M.FormSelect.init(select);
         });
     }
 
@@ -67,7 +67,6 @@ $(document).ready(function() {
             });
             
             select.prop('disabled', false);
-            M.FormSelect.init(select);
         });
     }
 
@@ -256,24 +255,57 @@ $(document).ready(function() {
                     {
                         label: 'Story Points Completados',
                         data: data.sprints.map(s => s.completed_points),
-                        backgroundColor: 'rgba(54, 162, 235, 0.8)',
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        borderWidth: 1
+                        backgroundColor: 'rgba(25, 118, 210, 0.8)',
+                        borderColor: 'rgba(25, 118, 210, 1)',
+                        borderWidth: 2,
+                        borderRadius: 4
                     },
                     {
                         label: 'Story Points Estimados',
                         data: data.sprints.map(s => s.estimated_points || 0),
-                        backgroundColor: 'rgba(255, 99, 132, 0.8)',
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        borderWidth: 1
+                        backgroundColor: 'rgba(255, 152, 0, 0.8)',
+                        borderColor: 'rgba(255, 152, 0, 1)',
+                        borderWidth: 2,
+                        borderRadius: 4
                     }
                 ]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                },
                 scales: {
                     y: {
-                        beginAtZero: true
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
+                        }
                     }
                 }
             }
@@ -298,16 +330,53 @@ $(document).ready(function() {
                 datasets: [{
                     label: 'Story Points/Hora',
                     data: efficiencyData,
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    tension: 0.1
+                    borderColor: 'rgba(76, 175, 80, 1)',
+                    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+                    borderWidth: 3,
+                    tension: 0.3,
+                    fill: true,
+                    pointBackgroundColor: 'rgba(76, 175, 80, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                },
                 scales: {
                     y: {
-                        beginAtZero: true
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
+                        }
                     }
                 }
             }
@@ -330,21 +399,45 @@ $(document).ready(function() {
         });
         
         charts.issueDistribution = new Chart(ctx, {
-            type: 'pie',
+            type: 'doughnut',
             data: {
                 labels: Object.keys(issueTypes),
                 datasets: [{
                     data: Object.values(issueTypes),
                     backgroundColor: [
-                        'rgba(255, 99, 132, 0.8)',
-                        'rgba(54, 162, 235, 0.8)',
-                        'rgba(255, 205, 86, 0.8)',
-                        'rgba(75, 192, 192, 0.8)'
-                    ]
+                        'rgba(25, 118, 210, 0.8)',
+                        'rgba(76, 175, 80, 0.8)',
+                        'rgba(255, 152, 0, 0.8)',
+                        'rgba(244, 67, 54, 0.8)',
+                        'rgba(156, 39, 176, 0.8)',
+                        'rgba(0, 150, 136, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(25, 118, 210, 1)',
+                        'rgba(76, 175, 80, 1)',
+                        'rgba(255, 152, 0, 1)',
+                        'rgba(244, 67, 54, 1)',
+                        'rgba(156, 39, 176, 1)',
+                        'rgba(0, 150, 136, 1)'
+                    ],
+                    borderWidth: 2
                 }]
             },
             options: {
-                responsive: true
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                }
             }
         });
     }
@@ -369,16 +462,48 @@ $(document).ready(function() {
                 datasets: [{
                     label: 'Ratio Bugs/Features (%)',
                     data: ratios,
-                    backgroundColor: 'rgba(255, 99, 132, 0.8)',
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    borderWidth: 1
+                    backgroundColor: 'rgba(244, 67, 54, 0.8)',
+                    borderColor: 'rgba(244, 67, 54, 1)',
+                    borderWidth: 2,
+                    borderRadius: 4
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                },
                 scales: {
                     y: {
-                        beginAtZero: true
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
+                        }
                     }
                 }
             }
@@ -407,14 +532,46 @@ $(document).ready(function() {
                     data: ratios,
                     backgroundColor: 'rgba(255, 152, 0, 0.8)',
                     borderColor: 'rgba(255, 152, 0, 1)',
-                    borderWidth: 1
+                    borderWidth: 2,
+                    borderRadius: 4
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                },
                 scales: {
                     y: {
-                        beginAtZero: true
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
+                        }
                     }
                 }
             }
