@@ -86,24 +86,27 @@ $(document).ready(function() {
         const container = $('#sprints-container');
         container.empty();
         
-        sprints.forEach(sprint => {
+        const sprintIcons = [
+            '🚀', '⚡', '🎯', '💎', '🔥', '🌟', '🎨', '⚙️', '🎪', '🏆'
+        ];
+        
+        sprints.forEach((sprint, index) => {
+            const icon = sprintIcons[index % sprintIcons.length];
             const sprintCard = $(`
                 <div class="col s12 m6 l4">
                     <div class="card-panel hoverable sprint-card" data-sprint-id="${sprint.id}">
-                        <div class="row" style="margin-bottom: 0;">
-                            <div class="col s12">
-                                <h6>${sprint.name}</h6>
-                                <p class="grey-text">
-                                    ${formatDate(sprint.startDate)} - ${formatDate(sprint.endDate)}
-                                </p>
-                            </div>
-                            <div class="col s12">
-                                <label>
-                                    <input type="checkbox" class="sprint-checkbox" data-sprint-id="${sprint.id}" />
-                                    <span>Seleccionar</span>
-                                </label>
-                            </div>
+                        <div class="sprint-header">
+                            <span class="sprint-icon">${icon}</span>
+                            <h6>${sprint.name}</h6>
                         </div>
+                        <p class="sprint-dates">
+                            <i class="material-icons tiny">event</i>
+                            ${formatDate(sprint.startDate)} - ${formatDate(sprint.endDate)}
+                        </p>
+                        <label class="sprint-selector">
+                            <input type="checkbox" class="sprint-checkbox" data-sprint-id="${sprint.id}" />
+                            <span>Seleccionar Sprint</span>
+                        </label>
                     </div>
                 </div>
             `);
@@ -115,6 +118,7 @@ $(document).ready(function() {
         $('.sprint-checkbox').change(function() {
             const sprintId = parseInt($(this).data('sprint-id'));
             const isChecked = $(this).is(':checked');
+            const card = $(this).closest('.sprint-card');
             
             if (isChecked) {
                 if (selectedSprints.length >= 10) {
@@ -123,8 +127,10 @@ $(document).ready(function() {
                     return;
                 }
                 selectedSprints.push(sprintId);
+                card.addClass('selected');
             } else {
                 selectedSprints = selectedSprints.filter(id => id !== sprintId);
+                card.removeClass('selected');
             }
             
             updateAnalyzeButton();

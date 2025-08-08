@@ -821,6 +821,10 @@ table tbody tr:last-child td {
     cursor: pointer;
     transition: all 0.2s ease;
     border: 2px solid transparent;
+    padding: 16px !important;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
 }
 
 .sprint-card:hover {
@@ -831,6 +835,164 @@ table tbody tr:last-child td {
 .sprint-card.selected {
     border-color: var(--primary-color);
     background: rgba(25, 118, 210, 0.05);
+}
+
+/* Sprint card variants for visual differentiation */
+.sprint-card:nth-child(1) {
+    border-left: 4px solid #2196F3;
+    background: linear-gradient(135deg, rgba(33, 150, 243, 0.05) 0%, rgba(33, 150, 243, 0.02) 100%);
+}
+
+.sprint-card:nth-child(2) {
+    border-left: 4px solid #4CAF50;
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.05) 0%, rgba(76, 175, 80, 0.02) 100%);
+}
+
+.sprint-card:nth-child(3) {
+    border-left: 4px solid #FF9800;
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.05) 0%, rgba(255, 152, 0, 0.02) 100%);
+}
+
+.sprint-card:nth-child(4) {
+    border-left: 4px solid #9C27B0;
+    background: linear-gradient(135deg, rgba(156, 39, 176, 0.05) 0%, rgba(156, 39, 176, 0.02) 100%);
+}
+
+.sprint-card:nth-child(5) {
+    border-left: 4px solid #F44336;
+    background: linear-gradient(135deg, rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.02) 100%);
+}
+
+.sprint-card:nth-child(6) {
+    border-left: 4px solid #00BCD4;
+    background: linear-gradient(135deg, rgba(0, 188, 212, 0.05) 0%, rgba(0, 188, 212, 0.02) 100%);
+}
+
+.sprint-card:nth-child(7) {
+    border-left: 4px solid #795548;
+    background: linear-gradient(135deg, rgba(121, 85, 72, 0.05) 0%, rgba(121, 85, 72, 0.02) 100%);
+}
+
+.sprint-card:nth-child(8) {
+    border-left: 4px solid #607D8B;
+    background: linear-gradient(135deg, rgba(96, 125, 139, 0.05) 0%, rgba(96, 125, 139, 0.02) 100%);
+}
+
+.sprint-card:nth-child(9) {
+    border-left: 4px solid #E91E63;
+    background: linear-gradient(135deg, rgba(233, 30, 99, 0.05) 0%, rgba(233, 30, 99, 0.02) 100%);
+}
+
+.sprint-card:nth-child(10) {
+    border-left: 4px solid #3F51B5;
+    background: linear-gradient(135deg, rgba(63, 81, 181, 0.05) 0%, rgba(63, 81, 181, 0.02) 100%);
+}
+
+/* Sprint card content styling */
+.sprint-card h6 {
+    margin: 0 0 8px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.sprint-card p {
+    margin: 0 0 12px 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.sprint-card label {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.sprint-card input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+/* New sprint card elements */
+.sprint-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.sprint-icon {
+    font-size: 1.5rem;
+    margin-right: 12px;
+    display: inline-block;
+    width: 32px;
+    text-align: center;
+}
+
+.sprint-dates {
+    display: flex;
+    align-items: center;
+    margin: 8px 0 12px 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.sprint-dates i {
+    font-size: 14px;
+    margin-right: 6px;
+}
+
+.sprint-selector {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 8px 0;
+}
+
+.sprint-selector input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.sprint-selector span {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+/* Sprint card hover effects */
+.sprint-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-2);
+}
+
+.sprint-card.selected {
+    border-color: var(--primary-color);
+    background: rgba(25, 118, 210, 0.1) !important;
+    box-shadow: 0 4px 12px rgba(25, 118, 210, 0.2);
+}
+
+/* Responsive adjustments for sprint cards */
+@media only screen and (max-width: 768px) {
+    .sprint-card {
+        padding: 12px !important;
+        margin-bottom: 12px;
+    }
+    
+    .sprint-card h6 {
+        font-size: 0.9rem;
+    }
+    
+    .sprint-card p {
+        font-size: 0.8rem;
+    }
+    
+    .sprint-card label {
+        font-size: 0.8rem;
+    }
 }
 
 /* ===== INSIGHTS & RECOMMENDATIONS ===== */
