@@ -1,45 +1,63 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Active Sprint Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprint Activo - Jira Sprints</title>
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
     <link href="/static/css/styles.css" rel="stylesheet">
 </head>
 <body>
+    <!-- Navigation -->
     <nav>
-        <div class="nav-wrapper blue darken-1">
-            <div class="container">
-                <a href="/" class="brand-logo">JIRA Sprints</a>
-                <ul id="nav-mobile" class="right">
-                    <li><a href="/">Dashboard</a></li>
-                    <li><a href="/metrics">Metrics</a></li>
-                    <li class="active"><a href="/active">Active Sprint</a></li>
-                    <li><a href="/comparative-metrics">Métricas Comparativas</a></li>
-                </ul>
-            </div>
+        <div class="nav-wrapper">
+            <a href="/" class="brand-logo">
+                <i class="material-icons">dashboard</i>
+                Jira Sprints
+            </a>
+            <ul id="nav-mobile" class="right">
+                <li><a href="/"><i class="material-icons">home</i>Dashboard</a></li>
+                <li class="active"><a href="/active"><i class="material-icons">play_circle</i>Sprint Activo</a></li>
+                <li><a href="/metrics"><i class="material-icons">analytics</i>Métricas</a></li>
+                <li><a href="/comparative-metrics"><i class="material-icons">compare</i>Comparativas</a></li>
+            </ul>
         </div>
     </nav>
 
+    <!-- Main Content -->
     <div class="container">
+        <!-- Header -->
+        <div class="row">
+            <div class="col s12">
+                <h4>Sprint Activo</h4>
+                <p class="flow-text">Monitorea el progreso y rendimiento del sprint en curso</p>
+            </div>
+        </div>
+
+        <!-- Sprint Selection -->
         <div class="row">
             <div class="col s12">
                 <div class="card">
                     <div class="card-content">
-                        <span class="card-title">Sprint Selection</span>
+                        <span class="card-title">
+                            <i class="material-icons left">settings</i>
+                            Selección de Sprint
+                        </span>
                         <div class="row">
-                            <div class="input-field col s6">
+                            <div class="input-field col s12 m6">
                                 <select id="project-select">
-                                    <option value="" disabled selected>Choose project</option>
+                                    <option value="" disabled selected>Selecciona un proyecto</option>
                                 </select>
-                                <label>Project</label>
+                                <label>Proyecto</label>
                             </div>
-                            <div class="input-field col s6">
+                            <div class="input-field col s12 m6">
                                 <select id="board-select" disabled>
-                                    <option value="" disabled selected>Choose board</option>
+                                    <option value="" disabled selected>Selecciona un tablero</option>
                                 </select>
-                                <label>Board</label>
+                                <label>Tablero</label>
                             </div>
                         </div>
                     </div>
@@ -47,12 +65,17 @@
             </div>
         </div>
 
+        <!-- Dashboard Content -->
         <div class="dashboard-content" style="display: none;">
+            <!-- Sprint Progress -->
             <div class="row">
                 <div class="col s12">
                     <div class="card">
                         <div class="card-content">
-                            <span class="card-title">Sprint Progress</span>
+                            <span class="card-title">
+                                <i class="material-icons left">trending_up</i>
+                                Progreso del Sprint
+                            </span>
                             <div class="progress-wrapper" style="display: none;">
                                 <div class="progress">
                                     <div class="indeterminate"></div>
@@ -67,46 +90,63 @@
                 </div>
             </div>
 
+            <!-- Burndown Chart -->
             <div class="row">
                 <div class="col s12">
                     <div class="card">
                         <div class="card-content">
-                            <span class="card-title">Burndown Chart</span>
+                            <span class="card-title">
+                                <i class="material-icons left">show_chart</i>
+                                Gráfico de Burndown
+                            </span>
                             <div class="progress-wrapper" style="display: none;">
                                 <div class="progress">
                                     <div class="indeterminate"></div>
                                 </div>
                             </div>
-                            <canvas id="burndown-chart"></canvas>
+                            <div class="chart-container">
+                                <canvas id="burndown-chart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Charts Row -->
             <div class="row">
-                <div class="col s6">
+                <div class="col s12 m6">
                     <div class="card">
                         <div class="card-content">
-                            <span class="card-title">Issues by Type</span>
+                            <span class="card-title">
+                                <i class="material-icons left">category</i>
+                                Issues por Tipo
+                            </span>
                             <div class="progress-wrapper" style="display: none;">
                                 <div class="progress">
                                     <div class="indeterminate"></div>
                                 </div>
                             </div>
-                            <canvas id="issues-by-type-chart"></canvas>
+                            <div class="chart-container">
+                                <canvas id="issues-by-type-chart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="col s6">
+                <div class="col s12 m6">
                     <div class="card">
                         <div class="card-content">
-                            <span class="card-title">Issues by Status</span>
+                            <span class="card-title">
+                                <i class="material-icons left">assignment</i>
+                                Issues por Estado
+                            </span>
                             <div class="progress-wrapper" style="display: none;">
                                 <div class="progress">
                                     <div class="indeterminate"></div>
                                 </div>
                             </div>
-                            <canvas id="issues-by-status-chart"></canvas>
+                            <div class="chart-container">
+                                <canvas id="issues-by-status-chart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -114,6 +154,7 @@
         </div>
     </div>
 
+    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
