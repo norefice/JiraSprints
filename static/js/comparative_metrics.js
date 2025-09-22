@@ -456,9 +456,10 @@ $(document).ready(function() {
         }
         
         const ratios = data.sprints.map(sprint => {
-            const bugs = sprint.issue_type_distribution.Bug || 0;
-            const features = (sprint.issue_type_distribution.Story || 0) + (sprint.issue_type_distribution.Task || 0);
-            return features > 0 ? ((bugs / features) * 100).toFixed(1) : 0;
+            const dist = sprint.completed_issue_type_distribution || sprint.issue_type_distribution;
+            const bugs = (dist.Bug || 0);
+            const totalRelevant = Object.values(dist).reduce((a, b) => a + b, 0);
+            return totalRelevant > 0 ? ((bugs / totalRelevant) * 100).toFixed(1) : 0;
         });
         
         charts.bugsRatio = new Chart(ctx, {
@@ -524,9 +525,10 @@ $(document).ready(function() {
         }
         
         const ratios = data.sprints.map(sprint => {
-            const support = sprint.issue_type_distribution.Support || 0;
-            const features = (sprint.issue_type_distribution.Story || 0) + (sprint.issue_type_distribution.Task || 0);
-            return features > 0 ? ((support / features) * 100).toFixed(1) : 0;
+            const dist = sprint.completed_issue_type_distribution || sprint.issue_type_distribution;
+            const support = (dist.Support || 0);
+            const totalRelevant = Object.values(dist).reduce((a, b) => a + b, 0);
+            return totalRelevant > 0 ? ((support / totalRelevant) * 100).toFixed(1) : 0;
         });
         
         charts.supportRatio = new Chart(ctx, {
@@ -637,8 +639,8 @@ $(document).ready(function() {
                         <th>Story Points Completados</th>
                         <th>Horas Totales</th>
                         <th>Eficiencia (SP/Hora)</th>
-                        <th>Ratio Bugs/Features</th>
-                        <th>Ratio Support/Features</th>
+                        <th>Ratio Bugs/Total</th>
+                        <th>Ratio Support/Total</th>
                         <th>Precisión Estimaciones</th>
                     </tr>
                 </thead>
@@ -647,10 +649,12 @@ $(document).ready(function() {
         
         data.sprints.forEach(sprint => {
             const efficiency = sprint.total_hours > 0 ? (sprint.completed_points / sprint.total_hours).toFixed(2) : '0';
-            const bugsRatio = ((sprint.issue_type_distribution.Bug || 0) / 
-                ((sprint.issue_type_distribution.Story || 0) + (sprint.issue_type_distribution.Task || 0)) * 100).toFixed(1);
-            const supportRatio = ((sprint.issue_type_distribution.Support || 0) / 
-                ((sprint.issue_type_distribution.Story || 0) + (sprint.issue_type_distribution.Task || 0)) * 100).toFixed(1);
+            const dist = sprint.completed_issue_type_distribution || sprint.issue_type_distribution;
+            const bugCount = (dist.Bug || 0);
+            const totalRelevant = Object.values(dist).reduce((a, b) => a + b, 0);
+            const bugsRatio = totalRelevant > 0 ? ((bugCount / totalRelevant) * 100).toFixed(1) : '0.0';
+            const supportCount = (dist.Support || 0);
+            const supportRatio = totalRelevant > 0 ? ((supportCount / totalRelevant) * 100).toFixed(1) : '0.0';
             
             table += `
                 <tr>
@@ -660,7 +664,7 @@ $(document).ready(function() {
                     <td>${efficiency}</td>
                     <td>${bugsRatio}%</td>
                     <td>${supportRatio}%</td>
-                    <td>${calculateEstimationAccuracy(sprint)}%</td>
+                    <td>${formatSignificant(calculateEstimationAccuracy(sprint), 2)}%</td>
                 </tr>
             `;
         });
@@ -935,8 +939,9 @@ $(document).ready(function() {
         
         // Bugs ratio insights
         const latestSprint = data.sprints[data.sprints.length - 1];
-        const bugsRatio = (latestSprint.issue_type_distribution.Bug || 0) / 
-            ((latestSprint.issue_type_distribution.Story || 0) + (latestSprint.issue_type_distribution.Task || 0));
+        const dist = latestSprint.completed_issue_type_distribution || latestSprint.issue_type_distribution;
+        const bugsTotalRelevant = Object.values(dist).reduce((a, b) => a + b, 0);
+        const bugsRatio = bugsTotalRelevant > 0 ? (dist.Bug || 0) / bugsTotalRelevant : 0;
         
         if (bugsRatio > 0.25) {
             insights.push({
@@ -947,8 +952,8 @@ $(document).ready(function() {
         }
         
         // Support ratio insights
-        const supportRatio = (latestSprint.issue_type_distribution.Support || 0) / 
-            ((latestSprint.issue_type_distribution.Story || 0) + (latestSprint.issue_type_distribution.Task || 0));
+        const supportTotalRelevant = Object.values(dist).reduce((a, b) => a + b, 0);
+        const supportRatio = supportTotalRelevant > 0 ? (dist.Support || 0) / supportTotalRelevant : 0;
         
         if (supportRatio > 0.30) {
             insights.push({
@@ -986,12 +991,22 @@ $(document).ready(function() {
             recommendations.push({
                 priority: 'medium',
                 title: 'Mejorar Proceso de Estimación',
-                description: `La precisión promedio de estimaciones es del ${avgAccuracy.toFixed(1)}%.`,
+                description: `La precisión promedio de estimaciones es del ${formatSignificant(avgAccuracy, 2)}%.`,
                 suggestion: 'Implementa planning poker y mejora la definición de criterios de estimación.'
             });
         }
         
         return recommendations;
+    }
+
+    function formatSignificant(value, significantDigits = 2) {
+        const v = Number(value);
+        if (!isFinite(v)) return String(value);
+        if (v === 0) return '0';
+        const digitsAfterDecimal = Math.max(0, significantDigits - Math.floor(Math.log10(Math.abs(v))) - 1);
+        let out = v.toFixed(digitsAfterDecimal);
+        if (out.includes('.')) out = out.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+        return out;
     }
 
     function calculateEstimationAccuracy(sprint) {
