@@ -6,7 +6,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import pytz
-from config import JIRA_URL, JIRA_USER, JIRA_API_TOKEN
+from config import JIRA_URL, JIRA_USER, JIRA_API_TOKEN, TIMEZONE, STORY_POINTS_FIELDS
 
 # Usar las variables de configuración
 # Normalizar URL base para evitar dobles slashes
@@ -69,11 +69,8 @@ def get_issues_in_sprint(sprint_id):
     for issue in issues:
         issue_type = issue['fields']['issuetype']
         issue_type['iconUrl'] = issue_type['iconUrl']
-        story_points = issue['fields'].get('customfield_10016')        
-        if story_points is not None:
-            issue['fields']['customfield_10016'] = float(story_points)
-        else:
-            issue['fields']['customfield_10016'] = 0.0
+        # Normalizar Story Points en una clave común
+        issue['fields']['story_points'] = get_story_points_from_fields(issue['fields'])
     return issues
 
 def get_worklogs(issue_id):
@@ -108,14 +105,29 @@ def filter_worklogs_by_sprint(worklogs, sprint_start, sprint_end):
     return filtered_worklogs
 
 def format_date_to_utc3(date_str):
-    """Convierte una fecha UTC a UTC-3 y la formatea."""
+    """Convierte una fecha UTC a la zona horaria configurada y la formatea."""
     if not date_str:
         return ''
     utc = pytz.UTC
-    utc_minus_3 = pytz.timezone('America/Montevideo')
+    configured_tz = pytz.timezone(TIMEZONE)
     date = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.%f%z')
-    date_utc3 = date.astimezone(utc_minus_3)
-    return date_utc3.strftime('%Y-%m-%d %H:%M:%S')
+    date_in_tz = date.astimezone(configured_tz)
+    return date_in_tz.strftime('%Y-%m-%d %H:%M:%S')
+
+def get_story_points_from_fields(fields):
+    """
+    Devuelve el valor numérico de Story Points tomando el primer campo
+    configurado en STORY_POINTS_FIELDS que exista y sea no nulo.
+    """
+    for field_id in STORY_POINTS_FIELDS:
+        value = fields.get(field_id)
+        if value is None or value == '':
+            continue
+        try:
+            return float(value)
+        except Exception:
+            continue
+    return 0.0
 
 def get_sprint_details(sprint_id):
     url = f"{URL}/rest/agile/1.0/sprint/{sprint_id}"
@@ -136,7 +148,7 @@ def get_issues_with_details(sprint_id):
     sprint_end_date = datetime.strptime(sprint_details['endDate'], '%Y-%m-%d %H:%M:%S').date()
     # Ajustar la hora de cierre del sprint a las 23:59:59
     sprint_end = datetime.combine(sprint_end_date, datetime.max.time().replace(hour=23, minute=59, second=59, microsecond=0))
-    tz = pytz.timezone('America/Sao_Paulo')
+    tz = pytz.timezone(TIMEZONE)
     sprint_start = tz.localize(sprint_start)
     sprint_end = tz.localize(sprint_end)
     
