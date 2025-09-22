@@ -1,5 +1,7 @@
 import requests
 from requests.auth import HTTPBasicAuth
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -7,42 +9,62 @@ import pytz
 from config import JIRA_URL, JIRA_USER, JIRA_API_TOKEN
 
 # Usar las variables de configuración
-URL = JIRA_URL
+# Normalizar URL base para evitar dobles slashes
+URL = JIRA_URL.rstrip('/')
 auth = HTTPBasicAuth(JIRA_USER, JIRA_API_TOKEN)
+
+# Cliente HTTP resiliente con reintentos y timeouts
+DEFAULT_TIMEOUT = (10, 60)  # (connect, read) en segundos
+
+session = requests.Session()
+retries = Retry(
+    total=3,
+    connect=3,
+    read=3,
+    status=3,
+    backoff_factor=0.5,
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods={"GET"},
+)
+adapter = HTTPAdapter(max_retries=retries)
+session.mount("https://", adapter)
+session.mount("http://", adapter)
+
+def _get(url, params=None):
+    response = session.get(url, auth=auth, params=params, timeout=DEFAULT_TIMEOUT)
+    # Levantar excepción si no es 2xx
+    response.raise_for_status()
+    return response
 
 def get_projects():
     url = f"{URL}/rest/api/3/project"
-    response = requests.get(url, auth=auth)
+    response = _get(url)
     projects = response.json()
     projects.sort(key=lambda x: x['id'], reverse=True)
     return projects
 
 def get_boards_for_project(project_id):
     url = f"{URL}/rest/agile/1.0/board?projectKeyOrId={project_id}"
-    response = requests.get(url, auth=auth)
-    if response.status_code != 200:
-        response.raise_for_status()
+    response = _get(url)
     boards = response.json()
     return boards['values']
 
 def get_sprints_for_board(board_id):
     url = f"{URL}/rest/agile/1.0/board/{board_id}/sprint"
-    response = requests.get(url, auth=auth)
-    if response.status_code != 200:
-        response.raise_for_status()
+    response = _get(url)
     sprints = response.json()
     return sprints['values']
 
 def get_sprints():
     url = f"{URL}/rest/agile/1.0/board/{BOARD_ID}/sprint"
-    response = requests.get(url, auth=auth)
+    response = _get(url)
     sprints = response.json()['values']
     sprints.sort(key=lambda x: x['startDate'], reverse=True)
     return sprints
 
 def get_issues_in_sprint(sprint_id):
     url = f"{URL}/rest/agile/1.0/sprint/{sprint_id}/issue?startAt=0&maxResults=500&expand=fields,changelog"
-    response = requests.get(url, auth=auth)
+    response = _get(url)
     issues = response.json()['issues']
     for issue in issues:
         issue_type = issue['fields']['issuetype']
@@ -56,7 +78,7 @@ def get_issues_in_sprint(sprint_id):
 
 def get_worklogs(issue_id):
     url = f"{URL}/rest/api/3/issue/{issue_id}/worklog"
-    response = requests.get(url, auth=auth)
+    response = _get(url)
     worklogs = response.json()['worklogs']
     for worklog in worklogs:
         worklog['authorAvatar'] = worklog['author']['avatarUrls']['48x48']
@@ -97,7 +119,7 @@ def format_date_to_utc3(date_str):
 
 def get_sprint_details(sprint_id):
     url = f"{URL}/rest/agile/1.0/sprint/{sprint_id}"
-    response = requests.get(url, auth=auth)
+    response = _get(url)
     sprint = response.json()
     # Convertir fechas a UTC-3
     sprint['startDate'] = format_date_to_utc3(sprint.get('startDate'))
@@ -131,7 +153,7 @@ def get_issues_with_details(sprint_id):
 
 def get_sprint_name(sprint_id):
     url = f"{URL}/rest/agile/1.0/sprint/{sprint_id}"
-    response = requests.get(url, auth=auth)
+    response = _get(url)
     sprint = response.json()
     return sprint['name']
 

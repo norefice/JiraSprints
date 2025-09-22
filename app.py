@@ -16,18 +16,45 @@ def index():
 
 @app.route('/api/projects')
 def api_projects():
-    projects = get_projects()
-    return jsonify(projects)
+    try:
+        projects = get_projects()
+        return jsonify(projects)
+    except requests.exceptions.ConnectTimeout:
+        return jsonify({'error': 'Timeout connecting to Jira'}), 504
+    except requests.exceptions.ReadTimeout:
+        return jsonify({'error': 'Jira API read timed out'}), 504
+    except requests.exceptions.HTTPError as e:
+        return jsonify({'error': f'Jira HTTP error: {e.response.status_code}'}), e.response.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/projects/<int:project_id>/boards')
 def api_project_boards(project_id):
-    boards = get_boards_for_project(project_id)
-    return jsonify(boards)
+    try:
+        boards = get_boards_for_project(project_id)
+        return jsonify(boards)
+    except requests.exceptions.ConnectTimeout:
+        return jsonify({'error': 'Timeout connecting to Jira'}), 504
+    except requests.exceptions.ReadTimeout:
+        return jsonify({'error': 'Jira API read timed out'}), 504
+    except requests.exceptions.HTTPError as e:
+        return jsonify({'error': f'Jira HTTP error: {e.response.status_code}'}), e.response.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/boards/<int:board_id>/sprints')
 def api_board_sprints(board_id):
-    sprints = get_sprints_for_board(board_id)
-    return jsonify(sprints)
+    try:
+        sprints = get_sprints_for_board(board_id)
+        return jsonify(sprints)
+    except requests.exceptions.ConnectTimeout:
+        return jsonify({'error': 'Timeout connecting to Jira'}), 504
+    except requests.exceptions.ReadTimeout:
+        return jsonify({'error': 'Jira API read timed out'}), 504
+    except requests.exceptions.HTTPError as e:
+        return jsonify({'error': f'Jira HTTP error: {e.response.status_code}'}), e.response.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/sprints')
 def api_sprints():
