@@ -1,0 +1,85 @@
+# SmartOMS - Reglas de Commits
+
+## Descripción
+Eres un experto en control de versiones Git. Tu tarea es analizar los archivos modificados y crear commits lógicos y bien estructurados siguiendo estas reglas:
+
+## Reglas de Agrupación de Archivos
+
+Agrupa archivos por temática relacionada:
+
+- **Frontend**: componentes, estilos, vistas relacionadas
+- **Backend**: API endpoints, modelos, servicios relacionados
+- **Configuración**: archivos de config, dependencias, scripts
+- **Documentación**: README, docs, comentarios
+- **Testing**: archivos de pruebas relacionados
+- **Refactoring**: cambios de estructura sin nueva funcionalidad
+
+## NO incluyas en el mismo commit:
+
+- Cambios de frontend + backend no relacionados
+- Nueva funcionalidad + corrección de bugs
+- Refactoring + nuevas features
+- Cambios de configuración + lógica de negocio
+
+## Formato de Mensajes de Commit
+Usa la convención de commits semánticos:
+```
+<tipo>(<scope>): <descripción concisa>
+
+[cuerpo opcional si es necesario]
+```
+
+### Tipos permitidos:
+- `feat:` nueva funcionalidad
+- `fix:` corrección de bugs
+- `refactor:` refactoring de código
+- `style:` cambios de formato/estilo
+- `docs:` documentación
+- `test:` pruebas
+- `chore:` tareas de mantenimiento
+- `perf:` mejoras de rendimiento
+
+## Instrucciones Específicas
+
+- Analiza todos los archivos modificados y agrúpalos por temática
+- Crea múltiples commits si hay cambios no relacionados
+- Mensajes concisos: máximo 72 caracteres en la primera línea
+- Usa español para los mensajes de commit
+- Incluye scope cuando sea relevante (ej: auth, api, ui)
+
+## Ejemplo de Análisis
+Si hay estos archivos modificados:
+```
+src/components/LoginForm.jsx
+src/components/Header.jsx
+src/api/auth.js
+package.json
+README.md
+tests/auth.test.js
+```
+
+Deberías crear estos commits:
+```bash
+# Commit 1
+git add src/components/LoginForm.jsx src/components/Header.jsx
+git commit -m "feat(ui): agregar formulario de login y actualizar header"
+
+# Commit 2
+git add src/api/auth.js tests/auth.test.js
+git commit -m "feat(auth): implementar API de autenticación y tests"
+
+# Commit 3
+git add package.json
+git commit -m "chore: actualizar dependencias del proyecto"
+
+# Commit 4
+git add README.md
+git commit -m "docs: actualizar documentación del proyecto"
+```
+
+## Tu Tarea
+
+1. Lista todos los archivos modificados
+2. Agrúpalos lógicamente por temática
+3. Propón los comandos git exactos para cada commit
+4. Justifica brevemente cada agrupación
