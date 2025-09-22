@@ -1,4 +1,5 @@
-from flask import Flask, render_template, jsonify, send_file, Response, request
+from flask import Flask, render_template, jsonify, send_file, Response, request, send_from_directory
+import os
 from jira_api import get_sprints, get_issues_with_details, get_sprint_details, get_sprint_name, get_task_summary, get_projects, get_boards_for_project, get_sprints_for_board, URL
 from openpyxl import Workbook
 from io import BytesIO
@@ -13,6 +14,10 @@ app = Flask(__name__)
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 @app.route('/api/projects')
 def api_projects():
@@ -963,7 +968,7 @@ def download_comparative_analysis_xlsx():
         
         ws_summary.append([""])
         ws_summary.append(["Métricas por Sprint:"])
-        ws_summary.append(["Sprint", "Story Points Completados", "Horas Totales", "Eficiencia (SP/Hora)", "Ratio Bugs/Features", "Ratio Support/Features", "Precisión Estimaciones"])
+        ws_summary.append(["Sprint", "Story Points Completados", "Horas Totales", "Eficiencia (SP/Hora)", "Ratio Bugs/Total", "Ratio Support/Total", "Precisión Estimaciones"])
         
         for sprint in sprints_data:
             efficiency = sprint['total_hours'] > 0 and (sprint['completed_points'] / sprint['total_hours']) or 0
@@ -978,7 +983,7 @@ def download_comparative_analysis_xlsx():
                 round(efficiency, 2),
                 f"{bugs_ratio:.1f}%",
                 f"{support_ratio:.1f}%",
-                f"{estimation_accuracy:.1f}%"
+                f"{format_significant(estimation_accuracy, 2)}%"
             ])
         
         # Hoja de Métricas Individuales
@@ -1081,7 +1086,7 @@ def download_comparative_analysis_csv():
             
             output.append([""])
             output.append(["Métricas por Sprint:"])
-            output.append(["Sprint", "Story Points Completados", "Horas Totales", "Eficiencia (SP/Hora)", "Ratio Bugs/Features", "Ratio Support/Features", "Precisión Estimaciones"])
+            output.append(["Sprint", "Story Points Completados", "Horas Totales", "Eficiencia (SP/Hora)", "Ratio Bugs/Total", "Ratio Support/Total", "Precisión Estimaciones"])
             
             for sprint in sprints_data:
                 efficiency = sprint['total_hours'] > 0 and (sprint['completed_points'] / sprint['total_hours']) or 0
@@ -1096,7 +1101,7 @@ def download_comparative_analysis_csv():
                     round(efficiency, 2),
                     f"{bugs_ratio:.1f}%",
                     f"{support_ratio:.1f}%",
-                    f"{estimation_accuracy:.1f}%"
+                    f"{format_significant(estimation_accuracy, 2)}%"
                 ])
             
             output.append([""])
@@ -1176,6 +1181,8 @@ def calculate_comprehensive_sprint_metrics(sprint_details, issues):
     individual_metrics = {}
     detailed_issues = []
     estimation_analysis = []
+    # Distribución por tipo SOLO de issues finalizadas al cierre del sprint
+    completed_issue_type_distribution = {}
     
     for issue in issues:
         issue_type = issue['fields']['issuetype']['name']
@@ -1190,12 +1197,16 @@ def calculate_comprehensive_sprint_metrics(sprint_details, issues):
         # Estado al final del sprint usando changelog
         status = issue['fields']['status']['name']
         status_at_sprint_end = status
+        # Determinar el tipo de issue al final del sprint usando el changelog
+        issue_type_at_sprint_end = issue_type
         changelog = issue.get('changelog', {}).get('histories', [])
         
         if sprint_end_dt:
             sorted_changelog = sorted(changelog, key=lambda x: x.get('created', ''))
             initial_status = None
             last_status_before_sprint_end = None
+            last_type_before_sprint_end = None
+            type_set_from_future_change = False
             
             for history in sorted_changelog:
                 change_date = history.get('created')
@@ -1210,6 +1221,17 @@ def calculate_comprehensive_sprint_metrics(sprint_details, issues):
                                 
                                 if change_dt <= sprint_end_dt:
                                     last_status_before_sprint_end = item.get('toString')
+                            if item.get('field') == 'issuetype':
+                                # Si el cambio ocurrió antes o en la fecha fin del sprint,
+                                # el tipo vigente pasa a ser el destino del cambio.
+                                if change_dt <= sprint_end_dt:
+                                    last_type_before_sprint_end = item.get('toString')
+                                else:
+                                    # Si el primer cambio de tipo ocurre DESPUÉS del fin del sprint,
+                                    # entonces el tipo vigente al finalizar el sprint era el "from".
+                                    if not last_type_before_sprint_end and not type_set_from_future_change:
+                                        issue_type_at_sprint_end = item.get('fromString') or issue_type
+                                        type_set_from_future_change = True
                     except Exception:
                         pass
             
@@ -1219,6 +1241,9 @@ def calculate_comprehensive_sprint_metrics(sprint_details, issues):
                 status_at_sprint_end = initial_status
             else:
                 status_at_sprint_end = status
+            
+            if last_type_before_sprint_end:
+                issue_type_at_sprint_end = last_type_before_sprint_end
         
         # Time spent - worklogs ya están filtrados por sprint en get_issues_with_details
         time_spent = sum(worklog['timeSpentHours'] for worklog in issue['worklogs'])
@@ -1231,14 +1256,18 @@ def calculate_comprehensive_sprint_metrics(sprint_details, issues):
         if issue_type in ['Task', 'Story'] and story_points > 0:
             estimated_points += story_points
         
-        # Solo contar story points completados si está en estado final
+        # Solo contar story points y distribuir si está en estado final
         if status_at_sprint_end in ['Done', 'For Release', 'CODE REVIEW']:
             completed_points += story_points
+            # Contabilizar issues completadas por tipo (al cierre del sprint)
+            if issue_type_at_sprint_end not in completed_issue_type_distribution:
+                completed_issue_type_distribution[issue_type_at_sprint_end] = 0
+            completed_issue_type_distribution[issue_type_at_sprint_end] += 1
         
-        # Distribución por tipo
-        if issue_type not in issue_type_distribution:
-            issue_type_distribution[issue_type] = 0
-        issue_type_distribution[issue_type] += 1
+        # Distribución por tipo (usando el tipo vigente al final del sprint)
+        if issue_type_at_sprint_end not in issue_type_distribution:
+            issue_type_distribution[issue_type_at_sprint_end] = 0
+        issue_type_distribution[issue_type_at_sprint_end] += 1
         
         # Métricas individuales
         if assignee:
@@ -1303,6 +1332,7 @@ def calculate_comprehensive_sprint_metrics(sprint_details, issues):
         'estimated_points': estimated_points,  # Puntos estimados totales
         'total_hours': total_hours,
         'issue_type_distribution': issue_type_distribution,
+        'completed_issue_type_distribution': completed_issue_type_distribution,
         'individual_metrics': list(individual_metrics.values()),
         'detailed_issues': detailed_issues,
         'estimation_analysis': estimation_analysis
@@ -1341,25 +1371,50 @@ def generate_executive_insights(sprints_data):
     # Estimation accuracy insights
     estimation_accuracy = calculate_estimation_accuracy(latest_sprint)
     if estimation_accuracy < 70:
-        insights.append(f"📊 Baja precisión de estimaciones: {estimation_accuracy:.1f}% de las estimaciones fueron correctas")
+        insights.append(f"📊 Baja precisión de estimaciones: {format_significant(estimation_accuracy, 2)}% de las estimaciones fueron correctas")
     
     return insights
 
 def calculate_bugs_ratio(sprint_data):
     """
-    Calcula el ratio de bugs vs features
+    Calcula el ratio de bugs sobre el total de issues finalizadas
     """
-    bugs = sprint_data['issue_type_distribution'].get('Bug', 0)
-    features = sprint_data['issue_type_distribution'].get('Story', 0) + sprint_data['issue_type_distribution'].get('Task', 0)
-    return (bugs / features * 100) if features > 0 else 0
+    completed_dist = sprint_data.get('completed_issue_type_distribution') or {}
+    # Fallback a distribución total si por alguna razón no está
+    dist = completed_dist if completed_dist else sprint_data.get('issue_type_distribution', {})
+    bugs = dist.get('Bug', 0)
+    total_relevant = sum(dist.values())
+    return (bugs / total_relevant * 100) if total_relevant > 0 else 0
 
 def calculate_support_ratio(sprint_data):
     """
-    Calcula el ratio de support vs features
+    Calcula el ratio de support sobre el total de issues finalizadas
     """
-    support = sprint_data['issue_type_distribution'].get('Support', 0)
-    features = sprint_data['issue_type_distribution'].get('Story', 0) + sprint_data['issue_type_distribution'].get('Task', 0)
-    return (support / features * 100) if features > 0 else 0
+    completed_dist = sprint_data.get('completed_issue_type_distribution') or {}
+    dist = completed_dist if completed_dist else sprint_data.get('issue_type_distribution', {})
+    support = dist.get('Support', 0)
+    total_relevant = sum(dist.values())
+    return (support / total_relevant * 100) if total_relevant > 0 else 0
+
+def format_significant(value, significant_digits=2):
+    """
+    Formatea un número con N cifras significativas sin notación científica.
+    Devuelve una cadena lista para mostrar.
+    """
+    try:
+        v = float(value)
+    except Exception:
+        return str(value)
+    if v == 0:
+        return "0"
+    from math import log10, floor
+    digits_after_decimal = significant_digits - int(floor(log10(abs(v)))) - 1
+    digits_after_decimal = max(0, digits_after_decimal)
+    formatted = f"{v:.{digits_after_decimal}f}"
+    # Quitar ceros y punto finales innecesarios
+    if "." in formatted:
+        formatted = formatted.rstrip("0").rstrip(".")
+    return formatted
 
 def calculate_estimation_accuracy(sprint_data):
     """
