@@ -75,18 +75,37 @@ git clone https://github.com/norefice/JiraSprints.git
 cd JiraSprints
 ```
 
-### 2. Instalar Dependencias
+### 2. Crear entorno virtual (recomendado) e instalar dependencias
+
+En Windows (PowerShell):
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+En macOS/Linux:
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
 ### 3. Configurar Credenciales
-```bash
-# Copiar archivo de configuración
-cp config.example.py config.py
 
-# Editar config.py con tus credenciales
+Copiar el archivo de ejemplo a `config.py` y editar con tus credenciales.
+
+En Windows (PowerShell):
+```powershell
+Copy-Item config.example.py config.py
 ```
+
+En macOS/Linux:
+```bash
+cp config.example.py config.py
+```
+
+Luego, edita `config.py` con tu URL, usuario y token de Jira.
 
 ### 4. Configuración de JIRA
 Editar `config.py` con tus credenciales:
@@ -102,6 +121,11 @@ JIRA_API_TOKEN = "your-api-token"
 2. Haz clic en "Create API token"
 3. Dale un nombre descriptivo
 4. Copia el token generado
+
+### ⚠️ Recomendación de seguridad
+- No compartas ni subas `config.py` con credenciales reales a repositorios públicos.
+- Usa `config.example.py` como plantilla y mantén `config.py` fuera del control de versiones.
+- Rotar el token si fue expuesto.
 
 ## 🎮 Uso de la Aplicación
 
@@ -129,6 +153,35 @@ Abrir el navegador y navegar a: `http://localhost:5000`
 - Seleccionar múltiples sprints (hasta 10)
 - Análisis comparativo completo
 - Descargar reporte comparativo en Excel/CSV
+
+## 🧭 Endpoints principales
+
+### Vistas (Frontend)
+- `GET /` → Dashboard principal
+- `GET /metrics` → Métricas por sprint
+- `GET /comparative-metrics` → Métricas comparativas multi-sprint
+- `GET /active` → Vista de sprint activo (burndown, estado)
+
+### API (Backend)
+- Proyectos y tableros:
+  - `GET /api/projects`
+  - `GET /api/projects/<project_id>/boards`
+  - `GET /api/boards/<board_id>/sprints`
+- Sprint activo y métricas:
+  - `GET /api/sprints/active/<board_id>`
+  - `GET /api/metrics/velocity/<board_id>`
+  - `GET /api/metrics/summary/<board_id>`
+- Descargas por sprint:
+  - `GET /api/sprints/<sprint_id>/issues/download` (XLSX)
+  - `GET /api/sprints/<sprint_id>/worklogs/download` (XLSX)
+  - `GET /api/sprints/<sprint_id>/analysis/download` (XLSX)
+  - `GET /api/sprints/<sprint_id>/analysis/download_csv` (CSV)
+- Métricas comparativas multi-sprint:
+  - `POST /api/metrics/comparative` con body JSON: `{ "sprint_ids": [<id>, ...] }`
+  - `GET /api/metrics/comparative/download_xlsx?sprint_ids=1,2,3`
+  - `GET /api/metrics/comparative/download_csv?sprint_ids=1,2,3`
+
+Nota: algunas rutas internas como `GET /api/sprints` pueden requerir configuración adicional y no se usan desde el frontend.
 
 ## 📊 Métricas y Análisis
 
@@ -158,17 +211,32 @@ Abrir el navegador y navegar a: `http://localhost:5000`
 - **Spike**: Análisis, investigación, estimaciones (no estimado en puntos, solo logueo de horas)
 - **Support**: Tareas de soporte técnico (no estimado en puntos, solo logueo de horas)
 
+### Campos personalizados (Story Points)
+La app usa el campo de Story Points para varias métricas. Ahora puedes configurar los IDs en `config.py` mediante `STORY_POINTS_FIELDS` (en orden de preferencia). Por defecto: `customfield_10030`, luego `customfield_10016`.
+
+Si tu instancia de Jira usa otro ID de campo para Story Points, edita `STORY_POINTS_FIELDS` en `config.py`.
+
 ## 🔧 Configuración Avanzada
 
 ### Zona Horaria
-La aplicación está configurada para UTC-3 (América/Sao_Paulo). Para cambiar la zona horaria, modifica en `jira_api.py`:
-
-```python
-tz = pytz.timezone('America/Sao_Paulo')  # Cambiar según tu zona horaria
-```
+La aplicación usa una zona horaria configurable vía `TIMEZONE` en `config.py` (por defecto `America/Sao_Paulo`). Cambia ese valor para ajustar conversiones y presentación de fechas.
 
 ### Personalización de Métricas
 Puedes modificar las métricas y escalas de estimación en `app.py` según las necesidades de tu equipo.
+
+## 🛠️ Solución de problemas
+
+- "Timeout connecting to Jira" o "Jira API read timed out":
+  - Verifica conectividad a `JIRA_URL` y que la VPN/Firewall no bloquee.
+  - Reduce el rango de datos (menos sprints) y reintenta.
+- 401/403 en llamadas a Jira:
+  - Revisa `JIRA_USER` y `JIRA_API_TOKEN`.
+  - Confirma permisos en el proyecto/board.
+- Descargas vacías de worklogs:
+  - Asegura que los worklogs estén dentro del rango de fechas del sprint.
+  - Ajusta la zona horaria si tu equipo no está en UTC-3.
+
+Si el problema persiste, abre un issue con logs y pasos para reproducir.
 
 ## 📁 Estructura del Proyecto
 
