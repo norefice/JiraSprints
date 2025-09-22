@@ -98,7 +98,7 @@ def download_sprint_issues(sprint_id):
         issue_key = issue['key']
         issue_summary = issue['fields']['summary']
         issue_status = issue['fields']['status']['name']
-        story_points = issue['fields'].get('customfield_10016', 0)
+        story_points = issue['fields'].get('story_points', 0)
         ws_issues.append([issue_key, issue_summary, issue_status, story_points])
 
     file_stream = BytesIO()
@@ -266,12 +266,8 @@ def download_sprint_analysis(sprint_id):
         
         time_spent = sum(worklog['timeSpentHours'] for worklog in issue['worklogs'])
         
-        # Manejo explícito de Story Points usando el campo correcto
-        story_points = issue['fields'].get('customfield_10030', 0)
-        if story_points is not None:
-            story_points = float(story_points)
-        else:
-            story_points = 0.0
+        # Manejo explícito de Story Points usando el campo normalizado
+        story_points = float(issue['fields'].get('story_points', 0) or 0)
             
         # Solo analizar story points vs tiempo si la issue está finalizada (Code Review, For Release, Done)
         if status_at_sprint_end in ['CODE REVIEW', 'For Release', 'Done']:
@@ -412,11 +408,7 @@ def download_sprint_analysis_csv(sprint_id):
                     status_at_sprint_end = status
             # Los worklogs ya están filtrados por sprint en get_issues_with_details
             time_spent = sum(worklog['timeSpentHours'] for worklog in issue['worklogs'])
-            story_points = issue['fields'].get('customfield_10030', 0)
-            if story_points is not None:
-                story_points = float(story_points)
-            else:
-                story_points = 0.0
+            story_points = float(issue['fields'].get('story_points', 0) or 0)
             # Solo analizar story points vs tiempo si la issue está finalizada (Code Review, For Release, Done)
             if status_at_sprint_end in ['CODE REVIEW', 'For Release', 'Done']:
                 story_points_analysis = analyze_story_points_vs_time(story_points, time_spent)
@@ -521,7 +513,7 @@ def get_velocity_metrics(board_id):
         for sprint in recent_sprints:
             issues = get_issues_with_details(sprint['id'])
             completed_points = sum(
-                float(issue['fields'].get('customfield_10030', 0) or 0)
+                float(issue['fields'].get('story_points', 0) or 0)
                 for issue in issues
                 if issue['fields']['status']['name'].upper() in ['DONE', 'CLOSED', 'FOR RELEASE']
             )
@@ -553,8 +545,8 @@ def calculate_velocity_metrics(issues):
     for issue in issues:
         # Solo considerar historias y tareas técnicas (excluyendo Support, Bug y Spike que no se estiman en puntos)
         if issue['fields']['issuetype']['name'] in ['Story', 'Task']:
-            # Obtener puntos comprometidos y completados
-            story_points = issue['fields'].get('customfield_10030') or issue['fields'].get('customfield_10016', 0)
+            # Obtener puntos comprometidos y completados desde el campo normalizado
+            story_points = issue['fields'].get('story_points', 0)
             
             if story_points:
                 story_points = float(story_points)
@@ -687,7 +679,7 @@ def get_active_sprint(board_id):
             metrics['issues_by_status'][status] = metrics['issues_by_status'].get(status, 0) + 1
             
             # Sumar story points
-            story_points = float(issue['fields'].get('customfield_10030', 0) or 0)
+            story_points = float(issue['fields'].get('story_points', 0) or 0)
             metrics['story_points']['total'] += story_points
             if status.upper() in ['DONE', 'CLOSED', 'FOR RELEASE']:
                 metrics['story_points']['completed'] += story_points
@@ -714,7 +706,7 @@ def calculate_burndown_data(sprint, issues):
     
     # Primero calculamos los totales
     for issue in issues:
-        story_points = float(issue['fields'].get('customfield_10030', 0) or 0)
+        story_points = float(issue['fields'].get('story_points', 0) or 0)
         if story_points > 0:
             total_points += story_points
             if issue['fields']['status']['name'].upper() in COMPLETED_STATUSES:
@@ -750,7 +742,7 @@ def calculate_burndown_data(sprint, issues):
                     '%Y-%m-%d'
                 ).date()
                 if resolution_date == current_date:
-                    story_points = float(issue['fields'].get('customfield_10030', 0) or 0)
+                    story_points = float(issue['fields'].get('story_points', 0) or 0)
                     points_completed_today += story_points
         
         current_points -= points_completed_today
@@ -819,14 +811,7 @@ def get_sprint_metrics_summary(board_id):
                     issue_type_dist[issue_type] = 0
                 issue_type_dist[issue_type] += 1
                 # Story points
-                story_points = issue['fields'].get('customfield_10030') or issue['fields'].get('customfield_10016', 0)
-                if story_points:
-                    try:
-                        story_points = float(story_points)
-                    except:
-                        story_points = 0
-                else:
-                    story_points = 0
+                story_points = float(issue['fields'].get('story_points', 0) or 0)
                 # Comprometidos: todos los issues con story points (excluyendo Support, Bug y Spike que no se estiman en puntos)
                 if issue_type in ['Story', 'Task']:
                     committed_points += story_points
@@ -1240,11 +1225,7 @@ def calculate_comprehensive_sprint_metrics(sprint_details, issues):
         total_hours += time_spent
         
         # Story points
-        story_points = issue['fields'].get('customfield_10030', 0)
-        if story_points is not None:
-            story_points = float(story_points)
-        else:
-            story_points = 0.0
+        story_points = float(issue['fields'].get('story_points', 0) or 0)
         
         # Contar puntos estimados totales (solo para Task y Story, excluyendo Support, Bug y Spike)
         if issue_type in ['Task', 'Story'] and story_points > 0:
